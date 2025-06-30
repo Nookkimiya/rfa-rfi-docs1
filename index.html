@@ -101,9 +101,6 @@
   <label>วันที่รับคืน</label>
   <input type="date" id="docDate">
 
-  <label>แนบไฟล์ (PDF หรืออื่น ๆ)</label>
-  <input type="file" id="docFile" accept=".pdf,.doc,.docx,.jpg,.png">
-
   <button onclick="addDocument()">เพิ่มเอกสาร</button>
 
   <div class="search">
@@ -111,6 +108,7 @@
   </div>
 
   <div class="buttons">
+    <input type="file" accept=".csv" onchange="importCSV(event)">
     <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
   </div>
 
@@ -120,7 +118,6 @@
         <th>ชื่อเอกสาร</th>
         <th>สถานะ</th>
         <th>วันที่รับคืน</th>
-        <th>ไฟล์แนบ</th>
         <th>การจัดการ</th>
       </tr>
     </thead>
@@ -168,10 +165,6 @@
       const name = document.getElementById('docName').value.trim();
       const status = document.getElementById('docStatus').value;
       const date = document.getElementById('docDate').value;
-      const fileInput = document.getElementById('docFile');
-      const file = fileInput.files[0];
-      const fileName = file ? file.name : '';
-      const fileURL = file ? URL.createObjectURL(file) : '';
 
       if (!name || !date) {
         alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
@@ -179,9 +172,7 @@
       }
 
       const isDuplicate = documents.some(doc => doc.name === name);
-      const newDoc = { name, status, date, isDuplicate, fileName, fileURL };
-
-      documents.unshift(newDoc);
+      documents.unshift({ name, status, date, isDuplicate });
       saveToStorage();
       clearInputs();
       document.getElementById('docName').focus();
@@ -191,7 +182,6 @@
     function clearInputs() {
       document.getElementById('docName').value = '';
       document.getElementById('docDate').value = '';
-      document.getElementById('docFile').value = '';
     }
 
     function renderTable() {
@@ -211,7 +201,7 @@
         });
 
       if (filtered.length === 0) {
-        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
+        table.innerHTML = `<tr><td colspan="4" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
         return;
       }
 
@@ -223,7 +213,6 @@
           <td><span class="docName">${doc.name}</span></td>
           <td><span class="status-display status-${doc.status}">${doc.status}</span></td>
           <td><span class="docDate">${doc.date}</span></td>
-          <td>${doc.fileName ? `<a href="${doc.fileURL}" download="${doc.fileName}" target="_blank">📎 ${doc.fileName}</a>` : '-'}</td>
           <td>
             <div class="action-container">
               <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️ แก้ไข</button>
@@ -260,7 +249,6 @@
           </select>
         </td>
         <td><input type="date" value="${doc.date}" id="editDate${index}"></td>
-        <td>${doc.fileName ? `<a href="${doc.fileURL}" download="${doc.fileName}" target="_blank">📎 ${doc.fileName}</a>` : '-'}</td>
         <td>
           <div class="action-container">
             <button class="action-btn" onclick="saveEdit(${index})">💾 บันทึก</button>
@@ -291,10 +279,7 @@
         return;
       }
 
-      const prevFile = documents[index].fileName;
-      const prevURL = documents[index].fileURL;
-
-      documents[index] = { name, status, date, isDuplicate: false, fileName: prevFile, fileURL: prevURL };
+      documents[index] = { name, status, date, isDuplicate: false };
       saveToStorage();
       renderTable();
     }
@@ -323,6 +308,33 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+    function importCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const lines = e.target.result.split("\n");
+        let count = 0;
+        for (let line of lines) {
+          if (!line.trim()) continue;
+          const [name, status, date] = line.split(",").map(x => x.trim());
+
+          if (!name || !status || !date) continue;
+
+          const isDuplicate = documents.some(doc => doc.name === name);
+          documents.unshift({ name, status, date, isDuplicate });
+          count++;
+        }
+
+        saveToStorage();
+        renderTable();
+        alert(`นำเข้า ${count} รายการสำเร็จ`);
+        event.target.value = ''; // reset file input
+      };
+      reader.readAsText(file);
     }
   </script>
 
