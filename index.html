@@ -7,7 +7,7 @@
   <style>
     body {
       font-family: sans-serif;
-      max-width: 900px;
+      max-width: 1000px;
       margin: auto;
       padding: 20px;
     }
@@ -25,45 +25,32 @@
     }
     th, td {
       border: 1px solid #ccc;
-      padding: 4px 6px;
-      font-size: 14px;
+      padding: 2px 4px;
+      font-size: 13px;
       vertical-align: middle;
       white-space: nowrap;
+      text-align: center;
     }
     th {
       background-color: #f2f2f2;
-    }
-    td:nth-child(2), th:nth-child(2) {
-      text-align: center;
-    }
-    th:last-child, td:last-child {
-      text-align: center;
     }
     .search, .buttons {
       margin-top: 20px;
     }
     .action-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      padding: 4px 8px;
-      margin: 2px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      font-size: 12px;
+      padding: 2px 6px;
+      margin: 0;
+      border: 1px solid #aaa;
+      border-radius: 3px;
       background-color: #f5f5f5;
       cursor: pointer;
-      white-space: nowrap;
-      width: auto;
     }
     .action-container {
       display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
       justify-content: center;
-    }
-    .edit-mode input, .edit-mode select {
-      width: auto;
+      gap: 4px;
+      flex-wrap: nowrap;
     }
     .status-display {
       padding: 4px 8px;
@@ -77,9 +64,7 @@
     .status-แก้ไขเพิ่มเติม { background-color: #FFA500; color: black; }
     .status-ไม่อนุมัติ { background-color: #FF4500; }
     .status-DONE { background-color: #1E90FF; }
-    .duplicate-row {
-      background-color: #ffcccc;
-    }
+    .duplicate-row { background-color: #ffcccc; }
   </style>
 </head>
 <body>
@@ -110,11 +95,13 @@
   <div class="buttons">
     <input type="file" accept=".csv" onchange="importCSV(event)">
     <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
+    <button onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
   </div>
 
   <table>
     <thead>
       <tr>
+        <th><input type="checkbox" onclick="toggleAll(this)"></th>
         <th>ชื่อเอกสาร</th>
         <th>สถานะ</th>
         <th>วันที่รับคืน</th>
@@ -201,7 +188,7 @@
         });
 
       if (filtered.length === 0) {
-        table.innerHTML = `<tr><td colspan="4" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
+        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
         return;
       }
 
@@ -210,13 +197,14 @@
         if (doc.isDuplicate) row.classList.add('duplicate-row');
 
         row.innerHTML = `
-          <td><span class="docName">${doc.name}</span></td>
-          <td><span class="status-display status-${doc.status}">${doc.status}</span></td>
-          <td><span class="docDate">${doc.date}</span></td>
+          <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
+          <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
+          <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
+          <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
           <td>
             <div class="action-container">
-              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️ แก้ไข</button>
-              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️ ลบ</button>
+              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
+              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️</button>
             </div>
           </td>
         `;
@@ -238,6 +226,7 @@
 
       row.classList.add('edit-mode');
       row.innerHTML = `
+        <td></td>
         <td><input value="${doc.name}" id="editName${index}"></td>
         <td>
           <select id="editStatus${index}" onchange="updateSelectColor(this)">
@@ -251,8 +240,8 @@
         <td><input type="date" value="${doc.date}" id="editDate${index}"></td>
         <td>
           <div class="action-container">
-            <button class="action-btn" onclick="saveEdit(${index})">💾 บันทึก</button>
-            <button class="action-btn" onclick="renderTable()">❌ ยกเลิก</button>
+            <button class="action-btn" onclick="saveEdit(${index})">💾</button>
+            <button class="action-btn" onclick="renderTable()">❌</button>
           </div>
         </td>
       `;
@@ -291,8 +280,7 @@
       }
 
       const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
-      const rows = documents
-        .filter(doc => !doc.isDuplicate)
+      const rows = documents.filter(doc => !doc.isDuplicate)
         .map(doc => [doc.name, doc.status, doc.date]);
 
       let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
@@ -320,10 +308,8 @@
         let count = 0;
         for (let line of lines) {
           if (!line.trim()) continue;
-          const [name, status, date] = line.split(",").map(x => x.trim());
-
+          let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
           if (!name || !status || !date) continue;
-
           const isDuplicate = documents.some(doc => doc.name === name);
           documents.unshift({ name, status, date, isDuplicate });
           count++;
@@ -332,9 +318,29 @@
         saveToStorage();
         renderTable();
         alert(`นำเข้า ${count} รายการสำเร็จ`);
-        event.target.value = ''; // reset file input
+        event.target.value = '';
       };
       reader.readAsText(file);
+    }
+
+    function deleteSelected() {
+      const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
+      if (checkboxes.length === 0) {
+        alert("กรุณาเลือกรายการที่จะลบ");
+        return;
+      }
+
+      if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
+
+      const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+      documents = documents.filter((_, i) => !indexesToDelete.includes(i));
+      saveToStorage();
+      renderTable();
+    }
+
+    function toggleAll(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.rowCheckbox');
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
   </script>
 
