@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ระบบรับเอกสาร RFA & RFI จากปากช่อง</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+    input, select, button {
+      padding: 6px;
+      margin: 4px 0;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      font-size: 14px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    td:nth-child(2), th:nth-child(2) {
+      text-align: center;
+    }
+    th:last-child, td:last-child {
+      text-align: center;
+    }
+    .search, .buttons {
+      margin-top: 20px;
+    }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      padding: 4px 8px;
+      margin: 2px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f5f5f5;
+      cursor: pointer;
+      white-space: nowrap;
+      width: auto;
+    }
+    .action-container {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .edit-mode input, .edit-mode select {
+      width: auto;
+    }
+    .status-display {
+      padding: 4px 8px;
+      color: white;
+      border-radius: 4px;
+      display: inline-block;
+      text-align: center;
+    }
+    .status-อนุมัติ { background-color: #228B22; }
+    .status-อนุมัติตามบันทึก { background-color: #90EE90; color: black; }
+    .status-แก้ไขเพิ่มเติม { background-color: #FFA500; color: black; }
+    .status-ไม่อนุมัติ { background-color: #FF4500; }
+    .status-DONE { background-color: #1E90FF; }
+    .duplicate-row {
+      background-color: #ffcccc;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
+
+  <label>ชื่อเอกสาร</label>
+  <input type="text" id="docName" placeholder="เช่น RFA-000001">
+
+  <label>สถานะเอกสาร</label>
+  <select id="docStatus">
+    <option value="อนุมัติ">อนุมัติ</option>
+    <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
+    <option value="แก้ไขเพิ่มเติม">แก้ไขเพิ่มเติม</option>
+    <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
+    <option value="DONE">DONE</option>
+  </select>
+
+  <label>วันที่รับคืน</label>
+  <input type="date" id="docDate">
+
+  <button onclick="addDocument()">เพิ่มเอกสาร</button>
+
+  <div class="search">
+    <input type="text" id="searchInput" placeholder="ค้นหาเอกสารหรือสถานะ..." oninput="renderTable()">
+  </div>
+
+  <div class="buttons">
+    <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ชื่อเอกสาร</th>
+        <th>สถานะ</th>
+        <th>วันที่รับคืน</th>
+        <th>การจัดการ</th>
+      </tr>
+    </thead>
+    <tbody id="docTable"></tbody>
+  </table>
+
+  <script>
+    const STORAGE_KEY = 'documentReturnData';
+    let documents = [];
+
+    function updateSelectColor(select) {
+      const value = select.value;
+      select.className = '';
+      select.classList.add('status-display', `status-${value}`);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const statusSelect = document.getElementById('docStatus');
+      updateSelectColor(statusSelect);
+      statusSelect.addEventListener('change', function () {
+        updateSelectColor(this);
+      });
+
+      document.getElementById("docName").addEventListener("keypress", function (e) {
+        if (e.key === "Enter") addDocument();
+      });
+      document.getElementById("docDate").addEventListener("keypress", function (e) {
+        if (e.key === "Enter") addDocument();
+      });
+
+      loadFromStorage();
+      renderTable();
+    });
+
+    function loadFromStorage() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      documents = data ? JSON.parse(data) : [];
+    }
+
+    function saveToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+    }
+
+    function addDocument() {
+      const name = document.getElementById('docName').value.trim();
+      const status = document.getElementById('docStatus').value;
+      const date = document.getElementById('docDate').value;
+
+      if (!name || !date) {
+        alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
+        return;
+      }
+
+      const isDuplicate = documents.some(doc => doc.name === name);
+      if (isDuplicate) {
+        documents.unshift({ name, status, date, isDuplicate: true });
+        saveToStorage();
+        clearInputs();
+        document.getElementById('docName').focus(); // โฟกัสกลับไปที่ช่องกรอก
+        renderTable();
+        return;
+      }
+
+      documents.unshift({ name, status, date, isDuplicate: false });
+      saveToStorage();
+      clearInputs();
+      document.getElementById('docName').focus(); // โฟกัสกลับไปที่ช่องกรอก
+      renderTable();
+    }
+
+    function clearInputs() {
+      document.getElementById('docName').value = '';
+      document.getElementById('docDate').value = '';
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const table = document.getElementById('docTable');
+      table.innerHTML = '';
+
+      const filtered = documents.map((doc, index) => ({ ...doc, index }))
+        .filter(doc =>
+          doc.name.toLowerCase().includes(search) ||
+          doc.status.includes(search)
+        )
+        .sort((a, b) => {
+          if (a.isDuplicate && !b.isDuplicate) return -1;
+          if (!a.isDuplicate && b.isDuplicate) return 1;
+          return new Date(b.date) - new Date(a.date);
+        });
+
+      if (filtered.length === 0) {
+        table.innerHTML = `<tr><td colspan="4" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(doc => {
+        const row = document.createElement('tr');
+        if (doc.isDuplicate) row.classList.add('duplicate-row');
+
+        row.innerHTML = `
+          <td><span class="docName">${doc.name}</span></td>
+          <td><span class="status-display status-${doc.status}">${doc.status}</span></td>
+          <td><span class="docDate">${doc.date}</span></td>
+          <td>
+            <div class="action-container">
+              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️ แก้ไข</button>
+              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️ ลบ</button>
+            </div>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    function deleteDocument(index) {
+      if (confirm("ต้องการลบเอกสารนี้หรือไม่?")) {
+        documents.splice(index, 1);
+        saveToStorage();
+        renderTable();
+      }
+    }
+
+    function editDocument(index, btn) {
+      const row = btn.closest('tr');
+      const doc = documents[index];
+
+      row.classList.add('edit-mode');
+      row.innerHTML = `
+        <td><input value="${doc.name}" id="editName${index}"></td>
+        <td>
+          <select id="editStatus${index}" onchange="updateSelectColor(this)">
+            <option ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
+            <option ${doc.status === "อนุมัติตามบันทึก" ? "selected" : ""}>อนุมัติตามบันทึก</option>
+            <option ${doc.status === "แก้ไขเพิ่มเติม" ? "selected" : ""}>แก้ไขเพิ่มเติม</option>
+            <option ${doc.status === "ไม่อนุมัติ" ? "selected" : ""}>ไม่อนุมัติ</option>
+            <option ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
+          </select>
+        </td>
+        <td><input type="date" value="${doc.date}" id="editDate${index}"></td>
+        <td>
+          <div class="action-container">
+            <button class="action-btn" onclick="saveEdit(${index})">💾 บันทึก</button>
+            <button class="action-btn" onclick="renderTable()">❌ ยกเลิก</button>
+          </div>
+        </td>
+      `;
+
+      setTimeout(() => {
+        const editSelect = document.getElementById(`editStatus${index}`);
+        updateSelectColor(editSelect);
+      }, 0);
+    }
+
+    function saveEdit(index) {
+      const name = document.getElementById(`editName${index}`).value.trim();
+      const status = document.getElementById(`editStatus${index}`).value;
+      const date = document.getElementById(`editDate${index}`).value;
+
+      if (!name || !date) {
+        alert("กรุณากรอกข้อมูลให้ครบ");
+        return;
+      }
+
+      const isDuplicate = documents.some((doc, i) => doc.name === name && i !== index);
+      if (isDuplicate) {
+        alert("มีชื่อเอกสารนี้อยู่แล้ว");
+        return;
+      }
+
+      documents[index] = { name, status, date, isDuplicate: false };
+      saveToStorage();
+      renderTable();
+    }
+
+    function downloadCSV() {
+      if (documents.length === 0) {
+        alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
+        return;
+      }
+
+      const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
+      const rows = documents
+        .filter(doc => !doc.isDuplicate)
+        .map(doc => [doc.name, doc.status, doc.date]);
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += headers.join(",") + "\n";
+      rows.forEach(row => {
+        csvContent += row.map(item => `"${item}"`).join(",") + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "รายการเอกสาร.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+
+</body>
+</html>
