@@ -230,8 +230,7 @@
 
   <script>
     // **สำคัญมาก**: เปลี่ยน URL นี้เป็น URL ที่ได้จากการ Deploy Google Apps Script ของคุณ
-    // ไปที่ Google Apps Script Project -> Deploy -> New deployment -> Web app -> ตั้งค่า "Execute as: Me" และ "Who has access: Anyone" -> Copy URL ที่ได้
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwt2FL4BwbrcTF8qHOzr70MtxDFLgcPyfeSOxLMh3RXPgAUypjGW9wDkrKDb8qH8mDZTQ/exec'; 
+    const SCRIPT_URL = 'ใส่_URL_ของ_Google_Apps_Script_ที่นี่'; 
     
     let documents = []; // Array to store all documents
     let allChecked = false; // For master checkbox state
@@ -273,14 +272,6 @@
     }
 
     // --- API Interaction Functions ---
-    /**
-     * Calls the Google Apps Script web app API.
-     * @param {string} endpoint - The endpoint path (e.g., '?id=xyz' for GET/DELETE params).
-     * @param {string} method - HTTP method (GET, POST, PUT, DELETE).
-     * @param {object|null} data - Data payload for POST/PUT.
-     * @returns {Promise<object>} JSON response from the API.
-     * @throws {Error} If API call fails or returns an error status.
-     */
     async function callApi(endpoint = '', method = 'GET', data = null) {
       try {
         showLoading();
@@ -303,13 +294,11 @@
         const response = await fetch(fullUrl, options);
         
         if (!response.ok) {
-          // Attempt to parse error message from response body if available
           let errorText = `HTTP error! status: ${response.status}`;
           try {
             const errorJson = await response.json();
             errorText = errorJson.message || errorText;
           } catch (jsonError) {
-            // Fallback to text if JSON parsing fails
             errorText = await response.text();
           }
           throw new Error(errorText);
@@ -324,17 +313,13 @@
         return result;
       } catch (error) {
         console.error('API Error:', error);
-        throw error; // Re-throw the error to be caught by the calling function
+        throw error;
       } finally {
         hideLoading();
       }
     }
 
     // --- Document Management Functions ---
-
-    /**
-     * Loads documents from the API and renders the table.
-     */
     async function loadDocuments() {
       try {
         documents = await callApi();
@@ -354,9 +339,6 @@
       }
     }
 
-    /**
-     * Adds a new document to the system.
-     */
     async function addDocument() {
       const name = document.getElementById('docName').value.trim();
       const status = document.getElementById('docStatus').value;
@@ -379,7 +361,7 @@
         
         if (result.status === "success") {
           showAlert('success', result.message || 'เพิ่มเอกสารเรียบร้อยแล้ว');
-          await loadDocuments(); // Reload all data to reflect changes and new IDs
+          await loadDocuments();
           clearInputs();
           document.getElementById('docName').focus();
         }
@@ -392,25 +374,19 @@
     function clearInputs() {
       document.getElementById('docName').value = '';
       document.getElementById('docDate').value = '';
-      // Reset status to default
       document.getElementById('docStatus').value = 'อนุมัติ';
       updateSelectColor(document.getElementById('docStatus'));
     }
 
-    /**
-     * Deletes a document by its unique ID.
-     * @param {string} id - The unique ID of the document to delete.
-     * @param {number} docIndex - The original index in the `documents` array (for confirmation message).
-     */
     async function deleteDocument(id, docIndex) {
       if (!confirm(`ต้องการลบเอกสาร "${documents[docIndex].name}" ใช่หรือไม่?`)) return;
       
       try {
-        const result = await callApi(`?id=${id}`, 'DELETE'); // Pass ID as query param for DELETE
+        const result = await callApi(`?id=${id}`, 'DELETE');
         
         if (result.status === "success") {
           showAlert('success', result.message || 'ลบเอกสารเรียบร้อยแล้ว');
-          await loadDocuments(); // Reload all data
+          await loadDocuments();
         }
       } catch (error) {
         console.error('Error deleting document:', error);
@@ -418,11 +394,6 @@
       }
     }
 
-    /**
-     * Saves edits for a document.
-     * @param {string} id - The unique ID of the document being edited.
-     * @param {number} index - The original index in the `documents` array (for input IDs).
-     */
     async function saveEdit(id, index) {
       const name = document.getElementById(`editName${index}`).value.trim();
       const status = document.getElementById(`editStatus${index}`).value;
@@ -445,7 +416,7 @@
         
         if (result.status === "success") {
           showAlert('success', result.message || 'อัปเดตเอกสารเรียบร้อยแล้ว');
-          await loadDocuments(); // Reload all data
+          await loadDocuments();
         }
       } catch (error) {
         console.error('Error saving edit:', error);
@@ -453,9 +424,6 @@
       }
     }
 
-    /**
-     * Deletes all selected documents.
-     */
     async function deleteSelected() {
       const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
       if (checkboxes.length === 0) {
@@ -467,14 +435,12 @@
 
       try {
         showLoading();
-        // Get unique IDs of selected documents
         const idsToDelete = Array.from(checkboxes).map(cb => documents[parseInt(cb.dataset.originalIndex)].id);
         
         let successCount = 0;
         let errorCount = 0;
         let errorMessages = [];
 
-        // Delete one by one to give clear feedback for each
         for (const id of idsToDelete) {
           try {
             const result = await callApi(`?id=${id}`, 'DELETE');
@@ -490,7 +456,7 @@
           }
         }
         
-        await loadDocuments(); // Reload after all deletions attempts
+        await loadDocuments();
 
         if (errorCount > 0) {
           showAlert('warning', 
@@ -508,10 +474,6 @@
     }
 
     // --- Table Rendering Functions ---
-
-    /**
-     * Renders/updates the document table based on current `documents` array and search input.
-     */
     function renderTable() {
       const search = document.getElementById('searchInput').value.toLowerCase();
       const table = document.getElementById('docTable');
@@ -524,10 +486,8 @@
           doc.date.includes(search)
         )
         .sort((a, b) => {
-          // Sort by duplicate status (duplicates first)
           if (a.isDuplicate && !b.isDuplicate) return -1;
           if (!a.isDuplicate && b.isDuplicate) return 1;
-          // Then sort by date (newest first)
           return new Date(b.date) - new Date(a.date);
         });
 
@@ -539,7 +499,6 @@
             </td>
           </tr>
         `;
-        // Ensure master checkbox is unchecked if no data
         document.querySelector('th input[type="checkbox"]').checked = false;
         allChecked = false;
         return;
@@ -549,7 +508,6 @@
         const row = document.createElement('tr');
         if (doc.isDuplicate) row.classList.add('duplicate-row');
 
-        // Store original index for checkbox to access original document object
         const originalIndex = documents.findIndex(d => d.id === doc.id);
 
         row.innerHTML = `
@@ -568,19 +526,12 @@
       });
     }
 
-    /**
-     * Switches a row to edit mode.
-     * @param {number} index - The original index of the document in the `documents` array.
-     * @param {HTMLElement} btn - The "Edit" button element.
-     */
     function editDocument(index, btn) {
       const row = btn.closest('tr');
       const doc = documents[index];
 
-      // Remove any existing edit modes to ensure only one row is editable
       document.querySelectorAll('.edit-mode').forEach(r => r.classList.remove('edit-mode'));
       document.querySelectorAll('.action-btn.btn-primary[onclick^="saveEdit("]').forEach(b => {
-          // Re-render the table to revert any unsaved edits
           renderTable(); 
       });
 
@@ -606,7 +557,6 @@
         </td>
       `;
 
-      // Update color of the newly created select element
       setTimeout(() => {
         const editSelect = document.getElementById(`editStatus${index}`);
         if (editSelect) {
@@ -616,10 +566,6 @@
     }
 
     // --- CSV Handling Functions ---
-
-    /**
-     * Downloads current document data as a CSV file.
-     */
     function downloadCSV() {
       if (documents.length === 0) {
         showAlert('warning', 'ยังไม่มีข้อมูลให้ดาวน์โหลด');
@@ -627,12 +573,10 @@
       }
 
       const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
-      // Filter out duplicates if you only want unique names in download (optional)
-      // For now, it downloads all data as is from the table, but with proper escaping
       const rows = documents.map(doc => [doc.name, doc.status, doc.date]);
 
-      let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // \uFEFF for BOM (Byte Order Mark) for Excel compatibility with Thai
-      csvContent += headers.map(item => escapeCsv(item)).join(",") + "\n"; // Escape headers too
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += headers.map(item => escapeCsv(item)).join(",") + "\n";
       rows.forEach(row => {
         csvContent += row.map(item => escapeCsv(item)).join(",") + "\n";
       });
@@ -648,10 +592,6 @@
       showAlert('success', 'ดาวน์โหลดไฟล์ CSV เรียบร้อยแล้ว');
     }
 
-    /**
-     * Imports documents from a selected CSV file.
-     * @param {Event} event - The file input change event.
-     */
     function importCSV(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -660,20 +600,17 @@
       reader.onload = async function(e) {
         try {
           showLoading();
-          const lines = e.target.result.split(/\r?\n/); // Handle both \n and \r\n line endings
+          const lines = e.target.result.split(/\r?\n/);
           let successCount = 0;
           let errorCount = 0;
           let errorMessages = [];
           
-          // Skip header row if it exists
           const dataLines = lines[0] && lines[0].toLowerCase().includes('ชื่อเอกสาร') ? lines.slice(1) : lines;
 
           for (let i = 0; i < dataLines.length; i++) {
             const line = dataLines[i].trim();
-            if (!line) continue; // Skip empty lines
+            if (!line) continue;
             
-            // Regex to split CSV, handles commas inside quotes and escaped quotes
-            // This is a common and reasonably robust regex for simple CSV parsing
             const matches = line.match(/(?:[^,"']+|"(?:[^"]|"")*"|'(?:[^']|'')*')+/g);
 
             if (!matches || matches.length < 3) {
@@ -682,18 +619,15 @@
               continue;
             }
             
-            // Trim whitespace and remove surrounding quotes
             const parsedValues = matches.map(item => item.replace(/^"|"$/g, '').replace(/^'|'$/g, '').trim());
             const [name, status, date] = parsedValues;
 
-            // Basic validation for CSV input before sending to API
             if (!name || !status || !date) {
                 errorCount++;
                 errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์): ข้อมูลไม่ครบถ้วน (ชื่อ: "${name}", สถานะ: "${status}", วันที่: "${date}")`);
                 continue;
             }
 
-            // Validate date format for YYYY-MM-DD
             if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
                 errorCount++;
                 errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์): รูปแบบวันที่ไม่ถูกต้อง (${date} ควรเป็น YYYY-MM-DD)`);
@@ -714,7 +648,7 @@
             }
           }
           
-          await loadDocuments(); // Reload all documents after import attempts
+          await loadDocuments();
           
           if (errorCount > 0) {
             showAlert('warning', 
@@ -730,53 +664,42 @@
           showAlert('error', 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล', error.message);
         } finally {
           hideLoading();
-          event.target.value = ''; // Clear file input
+          event.target.value = '';
         }
       };
       reader.readAsText(file);
     }
 
     // --- UI Interaction Functions ---
-
-    /**
-     * Toggles all checkboxes in the table.
-     * @param {HTMLInputElement} masterCheckbox - The header checkbox.
-     */
     function toggleAll(masterCheckbox) {
       allChecked = masterCheckbox.checked;
       const checkboxes = document.querySelectorAll('.rowCheckbox');
       checkboxes.forEach(cb => cb.checked = allChecked);
     }
 
-    /**
-     * Displays a temporary alert message.
-     * @param {string} type - 'success', 'error', 'warning', or 'info'.
-     * @param {string} message - Main message to display (can include HTML).
-     * @param {string} details - Optional, more detailed message (can include HTML).
-     */
     function showAlert(type, message, details = '') {
       const alertDiv = document.createElement('div');
       alertDiv.style.position = 'fixed';
       alertDiv.style.top = '20px';
       alertDiv.style.right = '20px';
       alertDiv.style.padding = '15px';
-      alertDiv.style.borderRadius = '8px'; /* Slightly larger radius */
+      alertDiv.style.borderRadius = '8px';
       alertDiv.style.color = 'white';
       alertDiv.style.zIndex = '1000';
-      alertDiv.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)'; /* Stronger shadow */
-      alertDiv.style.maxWidth = '450px'; /* Slightly wider */
+      alertDiv.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+      alertDiv.style.maxWidth = '450px';
       alertDiv.style.wordBreak = 'break-word';
-      alertDiv.style.animation = 'fadeIn 0.3s forwards'; /* 'forwards' keeps the final state */
-      alertDiv.style.fontFamily = 'Sarabun, sans-serif'; // Ensure Sarabun font
+      alertDiv.style.animation = 'fadeIn 0.3s forwards';
+      alertDiv.style.fontFamily = 'Sarabun, sans-serif';
 
       if (type === 'success') {
         alertDiv.style.backgroundColor = '#4CAF50';
       } else if (type === 'error') {
         alertDiv.style.backgroundColor = '#f44336';
       } else if (type === 'warning') {
-        alertDiv.style.backgroundColor = '#FFC107'; /* A bit softer yellow */
+        alertDiv.style.backgroundColor = '#FFC107';
         alertDiv.style.color = '#333';
-      } else { // Default to info
+      } else {
         alertDiv.style.backgroundColor = '#2196F3';
       }
       
@@ -790,23 +713,21 @@
       setTimeout(() => {
         alertDiv.style.animation = 'fadeOut 0.3s forwards';
         alertDiv.addEventListener('animationend', () => {
-          if (alertDiv.parentNode) { // Check if it's still in DOM
+          if (alertDiv.parentNode) {
             document.body.removeChild(alertDiv);
           }
-        }, { once: true }); // Ensure listener is only called once
-      }, 5000); // Display for 5 seconds
+        }, { once: true });
+      }, 5000);
     }
 
     // --- Event Listeners and Initial Load ---
     document.addEventListener('DOMContentLoaded', () => {
-      // Initialize status select color
       const statusSelect = document.getElementById('docStatus');
       updateSelectColor(statusSelect);
       statusSelect.addEventListener('change', function() {
         updateSelectColor(this);
       });
 
-      // Add Enter key listener for input fields to trigger addDocument
       document.getElementById("docName").addEventListener("keypress", function(e) {
         if (e.key === "Enter") { e.preventDefault(); addDocument(); }
       });
@@ -814,7 +735,6 @@
         if (e.key === "Enter") { e.preventDefault(); addDocument(); }
       });
 
-      // Load documents on page load
       loadDocuments();
     });
   </script>
