@@ -72,28 +72,36 @@
       background-color: #f5f5f5;
       margin: 10px 0;
     }
+    .error-message {
+      color: red;
+      font-size: 12px;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
 
   <h2>ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
 
-  <label>ชื่อเอกสาร</label>
-  <input type="text" id="docName" placeholder="เช่น RFA-000001">
-
-  <label>สถานะเอกสาร</label>
-  <select id="docStatus">
-    <option value="อนุมัติ">อนุมัติ</option>
-    <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
-    <option value="แก้ไขเพิ่มเติม">แก้ไขเพิ่มเติม</option>
-    <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
-    <option value="DONE">DONE</option>
-  </select>
-
-  <label>วันที่รับคืน</label>
-  <input type="date" id="docDate">
-
-  <button onclick="addDocument()">เพิ่มเอกสาร</button>
+  <div id="form-container">
+    <label>ชื่อเอกสาร</label>
+    <input type="text" id="docName" placeholder="เช่น RFA-000001">
+    
+    <label>สถานะเอกสาร</label>
+    <select id="docStatus">
+      <option value="อนุมัติ">อนุมัติ</option>
+      <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
+      <option value="แก้ไขเพิ่มเติม">แก้ไขเพิ่มเติม</option>
+      <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
+      <option value="DONE">DONE</option>
+    </select>
+    
+    <label>วันที่รับคืน</label>
+    <input type="date" id="docDate">
+    
+    <button onclick="addDocument()">เพิ่มเอกสาร</button>
+    <div id="error-message" class="error-message"></div>
+  </div>
 
   <div class="search">
     <input type="text" id="searchInput" placeholder="ค้นหาเอกสารหรือสถานะ..." oninput="renderTable()">
@@ -121,10 +129,11 @@
   </table>
 
   <script>
+    // ตั้งค่า Google Apps Script URL - แทนที่ด้วย URL ของคุณ
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwt2FL4BwbrcTF8qHOzr70MtxDFLgcPyfeSOxLMh3RXPgAUypjGW9wDkrKDb8qH8mDZTQ/exec';
     let documents = [];
 
-    // แสดง/ซ่อน loading
+    // ฟังก์ชันแสดง/ซ่อน loading
     function showLoading() {
       document.getElementById('loading').style.display = 'block';
     }
@@ -142,12 +151,16 @@
 
     // เมื่อหน้าเว็บโหลดเสร็จ
     document.addEventListener('DOMContentLoaded', () => {
+      // ตั้งค่าวันที่เป็นวันปัจจุบัน
+      document.getElementById('docDate').valueAsDate = new Date();
+      
       const statusSelect = document.getElementById('docStatus');
       updateSelectColor(statusSelect);
       statusSelect.addEventListener('change', function() {
         updateSelectColor(this);
       });
 
+      // เพิ่ม Event Listener สำหรับปุ่ม Enter
       document.getElementById("docName").addEventListener("keypress", function(e) {
         if (e.key === "Enter") addDocument();
       });
@@ -155,23 +168,71 @@
         if (e.key === "Enter") addDocument();
       });
 
+      // โหลดข้อมูลครั้งแรก
       loadDocuments();
     });
+
+    // ฟังก์ชัน fetch ที่ปรับปรุงแล้ว
+    async function safeFetch(url, method = 'GET', body = null) {
+      const options = {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        redirect: 'follow'
+      };
+      
+      if (body) options.body = JSON.stringify(body);
+      
+      try {
+        // เพิ่ม timestamp เพื่อป้องกัน caching
+        const finalUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+        const response = await fetch(finalUrl, options);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+      }
+    }
 
     // โหลดข้อมูลจาก Google Sheets
     async function loadDocuments() {
       try {
         showLoading();
-        const response = await fetch(SCRIPT_URL);
-        if (!response.ok) throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-        documents = await response.json();
+        const data = await safeFetch(SCRIPT_URL);
+        
+        // ตรวจสอบเอกสารซ้ำ
+        const nameCounts = {};
+        data.forEach(doc => {
+          nameCounts[doc.name] = (nameCounts[doc.name] || 0) + 1;
+        });
+        
+        documents = data.map(doc => ({
+          ...doc,
+          isDuplicate: nameCounts[doc.name] > 1
+        }));
+        
         renderTable();
       } catch (error) {
         console.error('Error loading data:', error);
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+        showError('ไม่สามารถโหลดข้อมูลได้: ' + error.message);
       } finally {
         hideLoading();
       }
+    }
+
+    // แสดงข้อผิดพลาด
+    function showError(message) {
+      const errorElement = document.getElementById('error-message');
+      errorElement.textContent = message;
+      setTimeout(() => {
+        errorElement.textContent = '';
+      }, 5000);
     }
 
     // เพิ่มเอกสารใหม่
@@ -181,21 +242,13 @@
       const date = document.getElementById('docDate').value;
 
       if (!name || !date) {
-        alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
+        showError("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
         return;
       }
 
       try {
         showLoading();
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, status, date })
-        });
-        
-        const result = await response.json();
+        const result = await safeFetch(SCRIPT_URL, 'POST', { name, status, date });
         
         if (result.status === "error") {
           throw new Error(result.message);
@@ -206,7 +259,7 @@
         document.getElementById('docName').focus();
       } catch (error) {
         console.error('Error:', error);
-        alert('เกิดข้อผิดพลาด: ' + error.message);
+        showError('เกิดข้อผิดพลาด: ' + error.message);
       } finally {
         hideLoading();
       }
@@ -223,10 +276,11 @@
       const table = document.getElementById('docTable');
       table.innerHTML = '';
 
-      const filtered = documents.map((doc, index) => ({ ...doc, index }))
+      const filtered = documents
+        .map((doc, index) => ({ ...doc, index }))
         .filter(doc =>
           doc.name.toLowerCase().includes(search) ||
-          doc.status.includes(search)
+          doc.status.toLowerCase().includes(search)
         )
         .sort((a, b) => {
           if (a.isDuplicate && !b.isDuplicate) return -1;
@@ -251,7 +305,7 @@
           <td>
             <div class="action-container">
               <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
-              <button class="action-btn" onclick="deleteDocument(${doc.id}, ${doc.index})">🗑️</button>
+              <button class="action-btn" onclick="deleteDocument('${doc.id}', ${doc.index})">🗑️</button>
             </div>
           </td>
         `;
@@ -265,11 +319,7 @@
       
       try {
         showLoading();
-        const response = await fetch(`${SCRIPT_URL}?id=${id}`, {
-          method: 'DELETE'
-        });
-        
-        const result = await response.json();
+        const result = await safeFetch(`${SCRIPT_URL}?id=${id}`, 'DELETE');
         
         if (result.status === "error") {
           throw new Error(result.message);
@@ -278,7 +328,7 @@
         await loadDocuments();
       } catch (error) {
         console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
+        showError('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
       } finally {
         hideLoading();
       }
@@ -305,7 +355,7 @@
         <td><input type="date" value="${escapeHtml(doc.date)}" id="editDate${index}"></td>
         <td>
           <div class="action-container">
-            <button class="action-btn" onclick="saveEdit(${doc.id}, ${index})">💾</button>
+            <button class="action-btn" onclick="saveEdit('${doc.id}', ${index})">💾</button>
             <button class="action-btn" onclick="renderTable()">❌</button>
           </div>
         </td>
@@ -324,26 +374,18 @@
       const date = document.getElementById(`editDate${index}`).value;
 
       if (!name || !date) {
-        alert("กรุณากรอกข้อมูลให้ครบ");
+        showError("กรุณากรอกข้อมูลให้ครบ");
         return;
       }
 
       try {
         showLoading();
-        const response = await fetch(SCRIPT_URL, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            id: id,
-            name: name, 
-            status: status, 
-            date: date 
-          })
+        const result = await safeFetch(SCRIPT_URL, 'PUT', { 
+          id: id,
+          name: name, 
+          status: status, 
+          date: date 
         });
-        
-        const result = await response.json();
         
         if (result.status === "error") {
           throw new Error(result.message);
@@ -352,7 +394,7 @@
         await loadDocuments();
       } catch (error) {
         console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล: ' + error.message);
+        showError('เกิดข้อผิดพลาดในการอัปเดตข้อมูล: ' + error.message);
       } finally {
         hideLoading();
       }
@@ -361,7 +403,7 @@
     // ดาวน์โหลด CSV
     function downloadCSV() {
       if (documents.length === 0) {
-        alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
+        showError("ยังไม่มีข้อมูลให้ดาวน์โหลด");
         return;
       }
 
@@ -378,7 +420,7 @@
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "รายการเอกสาร.csv");
+      link.setAttribute("download", "รายการเอกสาร_" + new Date().toISOString().slice(0,10) + ".csv");
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -403,16 +445,7 @@
             if (!name || !status || !date) continue;
             
             try {
-              const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, status, date })
-              });
-              
-              const result = await response.json();
-              
+              const result = await safeFetch(SCRIPT_URL, 'POST', { name, status, date });
               if (result.status === "success") {
                 successCount++;
               } else {
@@ -428,7 +461,7 @@
           alert(`นำเข้าเสร็จสิ้น\nสำเร็จ: ${successCount} รายการ\nไม่สำเร็จ: ${errorCount} รายการ`);
         } catch (error) {
           console.error('Error:', error);
-          alert('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+          showError('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
         } finally {
           hideLoading();
           event.target.value = '';
@@ -441,7 +474,7 @@
     async function deleteSelected() {
       const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
       if (checkboxes.length === 0) {
-        alert("กรุณาเลือกรายการที่จะลบ");
+        showError("กรุณาเลือกรายการที่จะลบ");
         return;
       }
 
@@ -452,23 +485,26 @@
         const deletePromises = Array.from(checkboxes).map(async (cb) => {
           const index = parseInt(cb.dataset.index);
           const doc = documents[index];
-          const response = await fetch(`${SCRIPT_URL}?id=${doc.id}`, {
-            method: 'DELETE'
-          });
-          return response.json();
+          try {
+            const result = await safeFetch(`${SCRIPT_URL}?id=${doc.id}`, 'DELETE');
+            return result.status === "success";
+          } catch (error) {
+            console.error('Error deleting document:', error);
+            return false;
+          }
         });
 
         const results = await Promise.all(deletePromises);
-        const successCount = results.filter(r => r.status === "success").length;
+        const successCount = results.filter(success => success).length;
         
         if (successCount < checkboxes.length) {
-          alert(`ลบสำเร็จ ${successCount} รายการ จาก ${checkboxes.length} รายการ`);
+          showError(`ลบสำเร็จ ${successCount} รายการ จาก ${checkboxes.length} รายการ`);
         }
         
         await loadDocuments();
       } catch (error) {
         console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูลบางส่วน');
+        showError('เกิดข้อผิดพลาดในการลบข้อมูลบางส่วน');
       } finally {
         hideLoading();
       }
