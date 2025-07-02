@@ -65,6 +65,13 @@
     .status-ไม่อนุมัติ { background-color: #FF4500; }
     .status-DONE { background-color: #1E90FF; }
     .duplicate-row { background-color: #ffcccc; }
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 10px;
+      background-color: #f5f5f5;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -93,10 +100,12 @@
   </div>
 
   <div class="buttons">
-    <input type="file" accept=".csv" onchange="importCSV(event)">
+    <input type="file" accept=".csv" onchange="importCSV(event)" id="csvFile">
     <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
     <button onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
   </div>
+
+  <div id="loading" class="loading">กำลังประมวลผล...</div>
 
   <table>
     <thead>
@@ -112,16 +121,26 @@
   </table>
 
   <script>
-    // ตั้งค่า Google Apps Script URL
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwt2FL4BwbrcTF8qHOzr70MtxDFLgcPyfeSOxLMh3RXPgAUypjGW9wDkrKDb8qH8mDZTQ/exec';
     let documents = [];
 
+    // แสดง/ซ่อน loading
+    function showLoading() {
+      document.getElementById('loading').style.display = 'block';
+    }
+    
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    // อัพเดตสีของ select
     function updateSelectColor(select) {
       const value = select.value;
       select.className = '';
       select.classList.add('status-display', `status-${value}`);
     }
 
+    // เมื่อหน้าเว็บโหลดเสร็จ
     document.addEventListener('DOMContentLoaded', () => {
       const statusSelect = document.getElementById('docStatus');
       updateSelectColor(statusSelect);
@@ -142,19 +161,16 @@
     // โหลดข้อมูลจาก Google Sheets
     async function loadDocuments() {
       try {
+        showLoading();
         const response = await fetch(SCRIPT_URL);
         if (!response.ok) throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
         documents = await response.json();
-        
-        // เพิ่มการตรวจสอบเอกสารซ้ำ
-        documents.forEach(doc => {
-          doc.isDuplicate = documents.filter(d => d.name === doc.name).length > 1;
-        });
-        
         renderTable();
       } catch (error) {
         console.error('Error loading data:', error);
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+      } finally {
+        hideLoading();
       }
     }
 
@@ -170,6 +186,7 @@
       }
 
       try {
+        showLoading();
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
           headers: {
@@ -178,15 +195,20 @@
           body: JSON.stringify({ name, status, date })
         });
         
-        if (!response.ok) throw new Error('ไม่สามารถบันทึกข้อมูลได้');
+        const result = await response.json();
         
-        // โหลดข้อมูลใหม่หลังเพิ่ม
+        if (result.status === "error") {
+          throw new Error(result.message);
+        }
+        
         await loadDocuments();
         clearInputs();
         document.getElementById('docName').focus();
       } catch (error) {
         console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+      } finally {
+        hideLoading();
       }
     }
 
@@ -195,6 +217,7 @@
       document.getElementById('docDate').value = '';
     }
 
+    // แสดงตารางเอกสาร
     function renderTable() {
       const search = document.getElementById('searchInput').value.toLowerCase();
       const table = document.getElementById('docTable');
@@ -222,13 +245,13 @@
 
         row.innerHTML = `
           <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
-          <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
-          <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
-          <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
+          <td><span class="docName">${escapeHtml(doc.name)}</span></td>
+          <td><span class="status-display status-${doc.status}">${escapeHtml(doc.status)}</span></td>
+          <td><span class="docDate">${escapeHtml(doc.date)}</span></td>
           <td>
             <div class="action-container">
               <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
-              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️</button>
+              <button class="action-btn" onclick="deleteDocument(${doc.id}, ${doc.index})">🗑️</button>
             </div>
           </td>
         `;
@@ -236,19 +259,32 @@
       });
     }
 
-    async function deleteDocument(index) {
-      if (confirm("ต้องการลบเอกสารนี้หรือไม่?")) {
-        try {
-          // ในที่นี้เราจะโหลดข้อมูลใหม่ทั้งหมดแทนการลบเฉพาะรายการ
-          // สำหรับการลบเฉพาะรายการ ต้องปรับ Google Apps Script เพิ่มเติม
-          await loadDocuments();
-        } catch (error) {
-          console.error('Error:', error);
-          alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+    // ลบเอกสาร
+    async function deleteDocument(id, index) {
+      if (!confirm("ต้องการลบเอกสารนี้หรือไม่?")) return;
+      
+      try {
+        showLoading();
+        const response = await fetch(`${SCRIPT_URL}?id=${id}`, {
+          method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "error") {
+          throw new Error(result.message);
         }
+        
+        await loadDocuments();
+      } catch (error) {
+        console.error('Error:', error);
+        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
+      } finally {
+        hideLoading();
       }
     }
 
+    // แก้ไขเอกสาร
     function editDocument(index, btn) {
       const row = btn.closest('tr');
       const doc = documents[index];
@@ -256,7 +292,7 @@
       row.classList.add('edit-mode');
       row.innerHTML = `
         <td></td>
-        <td><input value="${doc.name}" id="editName${index}"></td>
+        <td><input value="${escapeHtml(doc.name)}" id="editName${index}"></td>
         <td>
           <select id="editStatus${index}" onchange="updateSelectColor(this)">
             <option ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
@@ -266,10 +302,10 @@
             <option ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
           </select>
         </td>
-        <td><input type="date" value="${doc.date}" id="editDate${index}"></td>
+        <td><input type="date" value="${escapeHtml(doc.date)}" id="editDate${index}"></td>
         <td>
           <div class="action-container">
-            <button class="action-btn" onclick="saveEdit(${index})">💾</button>
+            <button class="action-btn" onclick="saveEdit(${doc.id}, ${index})">💾</button>
             <button class="action-btn" onclick="renderTable()">❌</button>
           </div>
         </td>
@@ -281,7 +317,8 @@
       }, 0);
     }
 
-    async function saveEdit(index) {
+    // บันทึกการแก้ไข
+    async function saveEdit(id, index) {
       const name = document.getElementById(`editName${index}`).value.trim();
       const status = document.getElementById(`editStatus${index}`).value;
       const date = document.getElementById(`editDate${index}`).value;
@@ -292,15 +329,36 @@
       }
 
       try {
-        // ในที่นี้เราจะโหลดข้อมูลใหม่ทั้งหมดแทนการอัปเดตเฉพาะรายการ
-        // สำหรับการอัปเดตเฉพาะรายการ ต้องปรับ Google Apps Script เพิ่มเติม
+        showLoading();
+        const response = await fetch(SCRIPT_URL, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            id: id,
+            name: name, 
+            status: status, 
+            date: date 
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === "error") {
+          throw new Error(result.message);
+        }
+        
         await loadDocuments();
       } catch (error) {
         console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
+        alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล: ' + error.message);
+      } finally {
+        hideLoading();
       }
     }
 
+    // ดาวน์โหลด CSV
     function downloadCSV() {
       if (documents.length === 0) {
         alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
@@ -314,7 +372,7 @@
       let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
       csvContent += headers.join(",") + "\n";
       rows.forEach(row => {
-        csvContent += row.map(item => `"${item}"`).join(",") + "\n";
+        csvContent += row.map(item => `"${escapeCsv(item)}"`).join(",") + "\n";
       });
 
       const encodedUri = encodeURI(csvContent);
@@ -326,50 +384,61 @@
       document.body.removeChild(link);
     }
 
-    function importCSV(event) {
+    // นำเข้า CSV
+    async function importCSV(event) {
       const file = event.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(e) {
-        const lines = e.target.result.split("\n");
-        let count = 0;
-        
-        // ใช้ Promise.all เพื่อรอให้ทุกการบันทึกเสร็จสิ้น
-        const importPromises = [];
-        
-        for (let line of lines) {
-          if (!line.trim()) continue;
-          let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
-          if (!name || !status || !date) continue;
+      reader.onload = async function(e) {
+        try {
+          showLoading();
+          const lines = e.target.result.split("\n");
+          let successCount = 0;
+          let errorCount = 0;
           
-          importPromises.push(
-            fetch(SCRIPT_URL, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ name, status, date })
-            }).then(response => {
-              if (response.ok) count++;
-              return response;
-            })
-          );
-        }
-
-        Promise.all(importPromises).then(() => {
-          loadDocuments();
-          alert(`นำเข้า ${count} รายการสำเร็จ`);
-          event.target.value = '';
-        }).catch(error => {
+          for (let line of lines) {
+            if (!line.trim()) continue;
+            let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
+            if (!name || !status || !date) continue;
+            
+            try {
+              const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, status, date })
+              });
+              
+              const result = await response.json();
+              
+              if (result.status === "success") {
+                successCount++;
+              } else {
+                errorCount++;
+              }
+            } catch (error) {
+              errorCount++;
+              console.error('Error importing row:', error);
+            }
+          }
+          
+          await loadDocuments();
+          alert(`นำเข้าเสร็จสิ้น\nสำเร็จ: ${successCount} รายการ\nไม่สำเร็จ: ${errorCount} รายการ`);
+        } catch (error) {
           console.error('Error:', error);
-          alert('เกิดข้อผิดพลาดในการนำเข้าข้อมูลบางส่วน');
-        });
+          alert('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+        } finally {
+          hideLoading();
+          event.target.value = '';
+        }
       };
       reader.readAsText(file);
     }
 
-    function deleteSelected() {
+    // ลบหลายรายการ
+    async function deleteSelected() {
       const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
       if (checkboxes.length === 0) {
         alert("กรุณาเลือกรายการที่จะลบ");
@@ -378,14 +447,53 @@
 
       if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
 
-      // ในที่นี้เราจะโหลดข้อมูลใหม่ทั้งหมดแทนการลบเฉพาะรายการ
-      // สำหรับการลบเฉพาะรายการ ต้องปรับ Google Apps Script เพิ่มเติม
-      loadDocuments();
+      try {
+        showLoading();
+        const deletePromises = Array.from(checkboxes).map(async (cb) => {
+          const index = parseInt(cb.dataset.index);
+          const doc = documents[index];
+          const response = await fetch(`${SCRIPT_URL}?id=${doc.id}`, {
+            method: 'DELETE'
+          });
+          return response.json();
+        });
+
+        const results = await Promise.all(deletePromises);
+        const successCount = results.filter(r => r.status === "success").length;
+        
+        if (successCount < checkboxes.length) {
+          alert(`ลบสำเร็จ ${successCount} รายการ จาก ${checkboxes.length} รายการ`);
+        }
+        
+        await loadDocuments();
+      } catch (error) {
+        console.error('Error:', error);
+        alert('เกิดข้อผิดพลาดในการลบข้อมูลบางส่วน');
+      } finally {
+        hideLoading();
+      }
     }
 
+    // เลือกทั้งหมด
     function toggleAll(masterCheckbox) {
       const checkboxes = document.querySelectorAll('.rowCheckbox');
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
+    // ฟังก์ชันช่วยเหลือ
+    function escapeHtml(unsafe) {
+      if (!unsafe) return '';
+      return unsafe.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeCsv(unsafe) {
+      if (!unsafe) return '';
+      return unsafe.toString().replace(/"/g, '""');
     }
   </script>
 </body>
