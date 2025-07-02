@@ -25,7 +25,7 @@
     }
     th, td {
       border: 1px solid #ccc;
-      padding: 2px 4px;
+      padding: 2px 6px;
       font-size: 13px;
       vertical-align: middle;
       white-space: nowrap;
@@ -40,7 +40,7 @@
     .action-btn {
       font-size: 12px;
       padding: 2px 6px;
-      margin: 0;
+      margin: 0 2px;
       border: 1px solid #aaa;
       border-radius: 3px;
       background-color: #f5f5f5;
@@ -58,6 +58,7 @@
       border-radius: 4px;
       display: inline-block;
       text-align: center;
+      min-width: 70px;
     }
     .status-อนุมัติ { background-color: #228B22; }
     .status-อนุมัติตามบันทึก { background-color: #90EE90; color: black; }
@@ -111,8 +112,7 @@
     <tbody id="docTable"></tbody>
   </table>
 
-
- <script>
+  <script>
     const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycby9SJzfB4zC239aT5v6TKPlJY_srZAwW70L3nzdEqOGwkkXn_4cTEa7zZHuuAvcRyTY5Q/exec';
 
     let documents = [];
@@ -125,7 +125,6 @@
             name: row["ชื่อเอกสาร"],
             status: row["สถานะ"],
             date: row["วันที่รับคืน"],
-            isDuplicate: false
           }));
           renderTable();
         })
@@ -147,26 +146,87 @@
           'Content-Type': 'application/json'
         }
       })
-        .then(res => res.text())
-        .then(data => console.log("บันทึกข้อมูลสำเร็จ:", data))
-        .catch(err => {
-          alert("ไม่สามารถบันทึกข้อมูลไปยัง Google Sheets ได้");
-          console.error(err);
-        });
+      .then(res => res.text())
+      .then(data => console.log("บันทึกข้อมูลสำเร็จ:", data))
+      .catch(err => {
+        alert("ไม่สามารถบันทึกข้อมูลไปยัง Google Sheets ได้");
+        console.error(err);
+      });
     }
 
     function renderTable() {
-      const tbody = document.querySelector("#docTable tbody");
+      const tbody = document.getElementById("docTable");
+      const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+
       tbody.innerHTML = "";
-      documents.forEach(doc => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${doc.name}</td>
-          <td>${doc.status}</td>
-          <td>${doc.date}</td>
-        `;
-        tbody.appendChild(tr);
+
+      documents.forEach((doc, index) => {
+        // ค้นหา
+        if (
+          doc.name.toLowerCase().includes(searchTerm) || 
+          doc.status.toLowerCase().includes(searchTerm)
+        ) {
+          // เช็คซ้ำ
+          const isDuplicate = documents.filter(d => d.name === doc.name).length > 1;
+
+          const tr = document.createElement("tr");
+          if (isDuplicate) tr.classList.add("duplicate-row");
+
+          // กำหนด class สถานะ (ลบช่องว่าง)
+          const statusClass = "status-" + doc.status.replace(/\s+/g, '');
+
+          tr.innerHTML = `
+            <td><input type="checkbox" class="select-row" data-index="${index}"></td>
+            <td>${doc.name}</td>
+            <td><span class="status-display ${statusClass}">${doc.status}</span></td>
+            <td>${doc.date}</td>
+            <td class="action-container">
+              <button class="action-btn" onclick="editDocument(${index})">แก้ไข</button>
+              <button class="action-btn" onclick="deleteDocument(${index})">ลบ</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
       });
+    }
+
+    function toggleAll(source) {
+      const checkboxes = document.querySelectorAll('.select-row');
+      checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+
+    function deleteSelected() {
+      const checkboxes = document.querySelectorAll('.select-row:checked');
+      if (checkboxes.length === 0) {
+        alert("กรุณาเลือกอย่างน้อย 1 รายการที่จะลบ");
+        return;
+      }
+      if (!confirm(`ยืนยันการลบ ${checkboxes.length} รายการ?`)) return;
+
+      // ดึง index ที่เลือกมา แล้วลบเอกสารตาม index (ลบจากหลังไปหน้า)
+      const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-index')));
+      indexesToDelete.sort((a,b) => b - a).forEach(i => documents.splice(i, 1));
+      renderTable();
+    }
+
+    function deleteDocument(index) {
+      if (confirm('ยืนยันการลบเอกสารนี้?')) {
+        documents.splice(index, 1);
+        renderTable();
+      }
+    }
+
+    function editDocument(index) {
+      const doc = documents[index];
+      document.getElementById('docName').value = doc.name;
+      document.getElementById('docStatus').value = doc.status;
+      document.getElementById('docDate').value = doc.date;
+
+      // ลบข้อมูลที่แก้ไขออกจาก list ก่อน เพื่อไม่ให้ซ้ำเวลาเพิ่มใหม่
+      documents.splice(index, 1);
+      renderTable();
+
+      document.getElementById('docName').focus();
     }
 
     function addDocument() {
@@ -180,12 +240,12 @@
       }
 
       const isDuplicate = documents.some(doc => doc.name === name);
-      const doc = { name, status, date, isDuplicate };
+      const doc = { name, status, date };
+
       documents.unshift(doc);
       saveToSheet(doc);
 
       clearInputs();
-      document.getElementById('docName').focus();
       renderTable();
     }
 
@@ -195,11 +255,52 @@
       document.getElementById('docStatus').selectedIndex = 0;
     }
 
+    // --- โค้ดสำหรับ import/export CSV (ถ้าต้องการใช้) ---
+    function importCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const rows = text.split('\n').filter(r => r.trim() !== '');
+        rows.forEach(row => {
+          const cols = row.split(',');
+          if (cols.length >= 3) {
+            const doc = {
+              name: cols[0].trim(),
+              status: cols[1].trim(),
+              date: cols[2].trim()
+            };
+            documents.push(doc);
+          }
+        });
+        renderTable();
+      };
+      reader.readAsText(file);
+      event.target.value = ""; // รีเซ็ตไฟล์ input
+    }
+
+    function downloadCSV() {
+      let csv = "ชื่อเอกสาร,สถานะ,วันที่รับคืน\n";
+      documents.forEach(doc => {
+        csv += `"${doc.name}","${doc.status}","${doc.date}"\n`;
+      });
+      const blob = new Blob([csv], {type: 'text/csv'});
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'documents.csv';
+      a.click();
+
+      URL.revokeObjectURL(url);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadFromSheet();
     });
   </script>
-
 
 </body>
 </html>
