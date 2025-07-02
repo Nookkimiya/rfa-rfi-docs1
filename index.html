@@ -92,16 +92,10 @@
     <input type="text" id="searchInput" placeholder="ค้นหาเอกสารหรือสถานะ..." oninput="renderTable()">
   </div>
 
-  <div class="buttons">
-    <input type="file" accept=".csv" onchange="importCSV(event)">
-    <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
-    <button onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
-  </div>
-
   <table>
     <thead>
       <tr>
-        <th><input type="checkbox" onclick="toggleAll(this)"></th>
+        <th>เลือก</th>
         <th>ชื่อเอกสาร</th>
         <th>สถานะ</th>
         <th>วันที่รับคืน</th>
@@ -113,19 +107,12 @@
 
   <script>
     const STORAGE_KEY = 'documentReturnData';
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/PASTE_YOUR_URL_HERE/exec'; // แก้ไขตรงนี้
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/PASTE_YOUR_URL_HERE/exec'; // ใส่ URL จริงของคุณ
     let documents = [];
 
-    function updateSelectColor(select) {
-      const value = select.value;
-      select.className = '';
-      select.classList.add('status-display', `status-${value}`);
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
-      const statusSelect = document.getElementById('docStatus');
-      updateSelectColor(statusSelect);
-      statusSelect.addEventListener('change', function () {
+      updateSelectColor(document.getElementById('docStatus'));
+      document.getElementById('docStatus').addEventListener('change', function () {
         updateSelectColor(this);
       });
 
@@ -139,6 +126,12 @@
       loadFromStorage();
       renderTable();
     });
+
+    function updateSelectColor(select) {
+      const value = select.value;
+      select.className = '';
+      select.classList.add('status-display', `status-${value}`);
+    }
 
     function loadFromStorage() {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -166,27 +159,66 @@
       document.getElementById('docName').focus();
       renderTable();
 
-      // ส่งข้อมูลไป Google Sheets
+      // ส่งไป Google Sheets
       fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify({ name, status, date }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       })
       .then(res => res.text())
-      .then(msg => {
-        console.log("✅ ข้อมูลถูกส่งไป Google Sheets:", msg);
-      })
-      .catch(err => {
-        console.error("❌ เกิดข้อผิดพลาดในการส่ง Google Sheets:", err);
-        alert("เกิดข้อผิดพลาดในการส่งข้อมูลไป Google Sheets");
-      });
+      .then(msg => console.log("✅ ส่งไป Google Sheets:", msg))
+      .catch(err => console.error("❌ ไม่สามารถส่ง Google Sheets:", err));
     }
 
     function clearInputs() {
       document.getElementById('docName').value = '';
       document.getElementById('docDate').value = '';
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("docTable");
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      tbody.innerHTML = "";
+
+      documents.forEach((doc, index) => {
+        if (
+          !search ||
+          doc.name.toLowerCase().includes(search) ||
+          doc.status.toLowerCase().includes(search)
+        ) {
+          const row = document.createElement("tr");
+          if (doc.isDuplicate) row.classList.add("duplicate-row");
+
+          row.innerHTML = `
+            <td><input type="checkbox" data-index="${index}"></td>
+            <td>${doc.name}</td>
+            <td><span class="status-display status-${doc.status}">${doc.status}</span></td>
+            <td>${doc.date}</td>
+            <td class="action-container">
+              <button class="action-btn" onclick="editDocument(${index})">แก้ไข</button>
+              <button class="action-btn" onclick="deleteDocument(${index})">ลบ</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        }
+      });
+    }
+
+    function deleteDocument(index) {
+      if (confirm("คุณแน่ใจว่าต้องการลบเอกสารนี้หรือไม่?")) {
+        documents.splice(index, 1);
+        saveToStorage();
+        renderTable();
+      }
+    }
+
+    function editDocument(index) {
+      const doc = documents[index];
+      document.getElementById("docName").value = doc.name;
+      document.getElementById("docStatus").value = doc.status;
+      document.getElementById("docDate").value = doc.date;
+      updateSelectColor(document.getElementById("docStatus"));
+      deleteDocument(index);
     }
   </script>
 
