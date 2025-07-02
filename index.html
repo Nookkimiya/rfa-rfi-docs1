@@ -6,125 +6,237 @@
   <title>ระบบรับเอกสาร RFA & RFI จากปากช่อง</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: 'Sarabun', sans-serif;
       max-width: 1000px;
       margin: auto;
       padding: 20px;
+      background-color: #f5f5f5;
+      line-height: 1.6;
+    }
+    .container {
+      background-color: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     input, select, button {
-      padding: 6px;
-      margin: 4px 0;
+      padding: 8px;
+      margin: 6px 0;
       width: 100%;
       box-sizing: border-box;
       font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 16px;
+      margin-top: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 2px 4px;
-      font-size: 13px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      font-size: 14px;
       vertical-align: middle;
-      white-space: nowrap;
       text-align: center;
     }
     th {
-      background-color: #f2f2f2;
+      background-color: #4CAF50;
+      color: white;
+      font-weight: normal;
     }
     .search, .buttons {
       margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
     }
     .action-btn {
       font-size: 12px;
-      padding: 2px 6px;
-      margin: 0;
-      border: 1px solid #aaa;
+      padding: 5px 10px;
+      margin: 0 2px;
+      border: none;
       border-radius: 3px;
-      background-color: #f5f5f5;
       cursor: pointer;
+      transition: all 0.3s;
+    }
+    .action-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
     }
     .action-container {
       display: flex;
       justify-content: center;
-      gap: 4px;
-      flex-wrap: nowrap;
+      gap: 5px;
     }
     .status-display {
-      padding: 4px 8px;
+      padding: 5px 10px;
       color: white;
       border-radius: 4px;
       display: inline-block;
       text-align: center;
+      min-width: 100px;
+      font-weight: 500;
     }
-    .status-อนุมัติ { background-color: #228B22; }
-    .status-อนุมัติตามบันทึก { background-color: #90EE90; color: black; }
-    .status-แก้ไขเพิ่มเติม { background-color: #FFA500; color: black; }
-    .status-ไม่อนุมัติ { background-color: #FF4500; }
-    .status-DONE { background-color: #1E90FF; }
-    .duplicate-row { background-color: #ffcccc; }
+    /* Status Colors */
+    .status-อนุมัติ { background-color: #228B22; } /* Forest Green */
+    .status-อนุมัติตามบันทึก { background-color: #90EE90; color: #333; } /* Light Green */
+    .status-แก้ไขเพิ่มเติม { background-color: #FFA500; color: #333; } /* Orange */
+    .status-ไม่อนุมัติ { background-color: #FF4500; } /* Orange Red */
+    .status-DONE { background-color: #1E90FF; } /* Dodger Blue */
+
+    .duplicate-row { 
+      background-color: #fff3f3; /* Light red background for duplicates */
+      border-left: 5px solid #ffccdd; /* Red border to highlight */
+    }
     .loading {
       display: none;
       text-align: center;
-      padding: 10px;
-      background-color: #f5f5f5;
-      margin: 10px 0;
+      padding: 15px;
+      background-color: #e0f7fa;
+      color: #00796b;
+      margin: 15px 0;
+      border-radius: 4px;
+      font-size: 14px;
+      border: 1px solid #b2ebf2;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #555;
+    }
+    .btn-primary {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-primary:hover {
+      background-color: #45a049;
+    }
+    .btn-danger {
+      background-color: #f44336;
+      color: white;
+    }
+    .btn-danger:hover {
+      background-color: #da190b;
+    }
+    .btn-secondary {
+      background-color: #2196F3;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background-color: #0b7dda;
+    }
+    .edit-mode {
+      background-color: #f0f7ff !important;
+    }
+    #searchInput {
+      flex-grow: 1;
+      min-width: 200px;
+    }
+    .buttons button {
+      width: auto;
+      flex: 1;
+      min-width: 120px;
+    }
+    .no-data {
+      text-align: center;
+      padding: 20px;
+      color: #777;
+      font-style: italic;
+    }
+    @media (max-width: 600px) {
+      .action-container {
+        flex-direction: column;
+      }
+      .action-btn {
+        width: 100%;
+        margin: 2px 0;
+      }
+    }
+    /* Keyframe for fade-in/out alerts */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-20px); }
     }
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div class="container">
+    <h2 style="color: #2E7D32;">ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
 
-  <h2>ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
+    <div class="form-group">
+      <label for="docName">ชื่อเอกสาร</label>
+      <input type="text" id="docName" placeholder="เช่น RFA-000001" autofocus>
+    </div>
 
-  <label>ชื่อเอกสาร</label>
-  <input type="text" id="docName" placeholder="เช่น RFA-000001">
+    <div class="form-group">
+      <label for="docStatus">สถานะเอกสาร</label>
+      <select id="docStatus">
+        <option value="อนุมัติ">อนุมัติ</option>
+        <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
+        <option value="แก้ไขเพิ่มเติม">แก้ไขเพิ่มเติม</option>
+        <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
+        <option value="DONE">DONE</option>
+      </select>
+    </div>
 
-  <label>สถานะเอกสาร</label>
-  <select id="docStatus">
-    <option value="อนุมัติ">อนุมัติ</option>
-    <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
-    <option value="แก้ไขเพิ่มเติม">แก้ไขเพิ่มเติม</option>
-    <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
-    <option value="DONE">DONE</option>
-  </select>
+    <div class="form-group">
+      <label for="docDate">วันที่รับคืน</label>
+      <input type="date" id="docDate">
+    </div>
 
-  <label>วันที่รับคืน</label>
-  <input type="date" id="docDate">
+    <button class="btn-primary" onclick="addDocument()">เพิ่มเอกสาร</button>
 
-  <button onclick="addDocument()">เพิ่มเอกสาร</button>
+    <div class="search">
+      <input type="text" id="searchInput" placeholder="ค้นหาชื่อเอกสารหรือสถานะ..." oninput="renderTable()">
+    </div>
 
-  <div class="search">
-    <input type="text" id="searchInput" placeholder="ค้นหาเอกสารหรือสถานะ..." oninput="renderTable()">
+    <div class="buttons">
+      <input type="file" accept=".csv" onchange="importCSV(event)" id="csvFile" style="display: none;">
+      <button class="btn-secondary" onclick="document.getElementById('csvFile').click()">📥 นำเข้า CSV</button>
+      <button class="btn-secondary" onclick="downloadCSV()">📤 ดาวน์โหลด CSV</button>
+      <button class="btn-danger" onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
+    </div>
+
+    <div id="loading" class="loading">กำลังประมวลผล...</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th width="40"><input type="checkbox" onclick="toggleAll(this)"></th>
+          <th>ชื่อเอกสาร</th>
+          <th width="150">สถานะ</th>
+          <th width="120">วันที่รับคืน</th>
+          <th width="150">การจัดการ</th>
+        </tr>
+      </thead>
+      <tbody id="docTable"></tbody>
+    </table>
   </div>
-
-  <div class="buttons">
-    <input type="file" accept=".csv" onchange="importCSV(event)" id="csvFile">
-    <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
-    <button onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
-  </div>
-
-  <div id="loading" class="loading">กำลังประมวลผล...</div>
-
-  <table>
-    <thead>
-      <tr>
-        <th><input type="checkbox" onclick="toggleAll(this)"></th>
-        <th>ชื่อเอกสาร</th>
-        <th>สถานะ</th>
-        <th>วันที่รับคืน</th>
-        <th>การจัดการ</th>
-      </tr>
-    </thead>
-    <tbody id="docTable"></tbody>
-  </table>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwt2FL4BwbrcTF8qHOzr70MtxDFLgcPyfeSOxLMh3RXPgAUypjGW9wDkrKDb8qH8mDZTQ/exec';
-    let documents = [];
+    // **สำคัญมาก**: เปลี่ยน URL นี้เป็น URL ที่ได้จากการ Deploy Google Apps Script ของคุณ
+    // ไปที่ Google Apps Script Project -> Deploy -> New deployment -> Web app -> ตั้งค่า "Execute as: Me" และ "Who has access: Anyone" -> Copy URL ที่ได้
+    const SCRIPT_URL = 'YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_URL_HERE'; 
+    
+    let documents = []; // Array to store all documents
+    let allChecked = false; // For master checkbox state
 
-    // แสดง/ซ่อน loading
+    // --- Basic UI Helper Functions ---
     function showLoading() {
       document.getElementById('loading').style.display = 'block';
     }
@@ -133,354 +245,13 @@
       document.getElementById('loading').style.display = 'none';
     }
 
-    // อัพเดตสีของ select
     function updateSelectColor(select) {
       const value = select.value;
-      select.className = '';
+      // Remove all status classes first to ensure only one is applied
+      select.classList.remove('status-อนุมัติ', 'status-อนุมัติตามบันทึก', 'status-แก้ไขเพิ่มเติม', 'status-ไม่อนุมัติ', 'status-DONE');
       select.classList.add('status-display', `status-${value}`);
     }
 
-    // เมื่อหน้าเว็บโหลดเสร็จ
-    document.addEventListener('DOMContentLoaded', () => {
-      const statusSelect = document.getElementById('docStatus');
-      updateSelectColor(statusSelect);
-      statusSelect.addEventListener('change', function() {
-        updateSelectColor(this);
-      });
-
-      document.getElementById("docName").addEventListener("keypress", function(e) {
-        if (e.key === "Enter") addDocument();
-      });
-      document.getElementById("docDate").addEventListener("keypress", function(e) {
-        if (e.key === "Enter") addDocument();
-      });
-
-      loadDocuments();
-    });
-
-    // โหลดข้อมูลจาก Google Sheets
-    async function loadDocuments() {
-      try {
-        showLoading();
-        const response = await fetch(SCRIPT_URL);
-        if (!response.ok) throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-        documents = await response.json();
-        renderTable();
-      } catch (error) {
-        console.error('Error loading data:', error);
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
-      } finally {
-        hideLoading();
-      }
-    }
-
-    // เพิ่มเอกสารใหม่
-    async function addDocument() {
-      const name = document.getElementById('docName').value.trim();
-      const status = document.getElementById('docStatus').value;
-      const date = document.getElementById('docDate').value;
-
-      if (!name || !date) {
-        alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
-        return;
-      }
-
-      try {
-        showLoading();
-        const response = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, status, date })
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === "error") {
-          throw new Error(result.message);
-        }
-        
-        await loadDocuments();
-        clearInputs();
-        document.getElementById('docName').focus();
-      } catch (error) {
-        console.error('Error:', error);
-        alert('เกิดข้อผิดพลาด: ' + error.message);
-      } finally {
-        hideLoading();
-      }
-    }
-
-    function clearInputs() {
-      document.getElementById('docName').value = '';
-      document.getElementById('docDate').value = '';
-    }
-
-    // แสดงตารางเอกสาร
-    function renderTable() {
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const table = document.getElementById('docTable');
-      table.innerHTML = '';
-
-      const filtered = documents.map((doc, index) => ({ ...doc, index }))
-        .filter(doc =>
-          doc.name.toLowerCase().includes(search) ||
-          doc.status.includes(search)
-        )
-        .sort((a, b) => {
-          if (a.isDuplicate && !b.isDuplicate) return -1;
-          if (!a.isDuplicate && b.isDuplicate) return 1;
-          return new Date(b.date) - new Date(a.date);
-        });
-
-      if (filtered.length === 0) {
-        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
-        return;
-      }
-
-      filtered.forEach(doc => {
-        const row = document.createElement('tr');
-        if (doc.isDuplicate) row.classList.add('duplicate-row');
-
-        row.innerHTML = `
-          <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
-          <td><span class="docName">${escapeHtml(doc.name)}</span></td>
-          <td><span class="status-display status-${doc.status}">${escapeHtml(doc.status)}</span></td>
-          <td><span class="docDate">${escapeHtml(doc.date)}</span></td>
-          <td>
-            <div class="action-container">
-              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
-              <button class="action-btn" onclick="deleteDocument(${doc.id}, ${doc.index})">🗑️</button>
-            </div>
-          </td>
-        `;
-        table.appendChild(row);
-      });
-    }
-
-    // ลบเอกสาร
-    async function deleteDocument(id, index) {
-      if (!confirm("ต้องการลบเอกสารนี้หรือไม่?")) return;
-      
-      try {
-        showLoading();
-        const response = await fetch(`${SCRIPT_URL}?id=${id}`, {
-          method: 'DELETE'
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === "error") {
-          throw new Error(result.message);
-        }
-        
-        await loadDocuments();
-      } catch (error) {
-        console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
-      } finally {
-        hideLoading();
-      }
-    }
-
-    // แก้ไขเอกสาร
-    function editDocument(index, btn) {
-      const row = btn.closest('tr');
-      const doc = documents[index];
-
-      row.classList.add('edit-mode');
-      row.innerHTML = `
-        <td></td>
-        <td><input value="${escapeHtml(doc.name)}" id="editName${index}"></td>
-        <td>
-          <select id="editStatus${index}" onchange="updateSelectColor(this)">
-            <option ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
-            <option ${doc.status === "อนุมัติตามบันทึก" ? "selected" : ""}>อนุมัติตามบันทึก</option>
-            <option ${doc.status === "แก้ไขเพิ่มเติม" ? "selected" : ""}>แก้ไขเพิ่มเติม</option>
-            <option ${doc.status === "ไม่อนุมัติ" ? "selected" : ""}>ไม่อนุมัติ</option>
-            <option ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
-          </select>
-        </td>
-        <td><input type="date" value="${escapeHtml(doc.date)}" id="editDate${index}"></td>
-        <td>
-          <div class="action-container">
-            <button class="action-btn" onclick="saveEdit(${doc.id}, ${index})">💾</button>
-            <button class="action-btn" onclick="renderTable()">❌</button>
-          </div>
-        </td>
-      `;
-
-      setTimeout(() => {
-        const editSelect = document.getElementById(`editStatus${index}`);
-        updateSelectColor(editSelect);
-      }, 0);
-    }
-
-    // บันทึกการแก้ไข
-    async function saveEdit(id, index) {
-      const name = document.getElementById(`editName${index}`).value.trim();
-      const status = document.getElementById(`editStatus${index}`).value;
-      const date = document.getElementById(`editDate${index}`).value;
-
-      if (!name || !date) {
-        alert("กรุณากรอกข้อมูลให้ครบ");
-        return;
-      }
-
-      try {
-        showLoading();
-        const response = await fetch(SCRIPT_URL, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            id: id,
-            name: name, 
-            status: status, 
-            date: date 
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === "error") {
-          throw new Error(result.message);
-        }
-        
-        await loadDocuments();
-      } catch (error) {
-        console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล: ' + error.message);
-      } finally {
-        hideLoading();
-      }
-    }
-
-    // ดาวน์โหลด CSV
-    function downloadCSV() {
-      if (documents.length === 0) {
-        alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
-        return;
-      }
-
-      const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
-      const rows = documents.filter(doc => !doc.isDuplicate)
-        .map(doc => [doc.name, doc.status, doc.date]);
-
-      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-      csvContent += headers.join(",") + "\n";
-      rows.forEach(row => {
-        csvContent += row.map(item => `"${escapeCsv(item)}"`).join(",") + "\n";
-      });
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "รายการเอกสาร.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    // นำเข้า CSV
-    async function importCSV(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async function(e) {
-        try {
-          showLoading();
-          const lines = e.target.result.split("\n");
-          let successCount = 0;
-          let errorCount = 0;
-          
-          for (let line of lines) {
-            if (!line.trim()) continue;
-            let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
-            if (!name || !status || !date) continue;
-            
-            try {
-              const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, status, date })
-              });
-              
-              const result = await response.json();
-              
-              if (result.status === "success") {
-                successCount++;
-              } else {
-                errorCount++;
-              }
-            } catch (error) {
-              errorCount++;
-              console.error('Error importing row:', error);
-            }
-          }
-          
-          await loadDocuments();
-          alert(`นำเข้าเสร็จสิ้น\nสำเร็จ: ${successCount} รายการ\nไม่สำเร็จ: ${errorCount} รายการ`);
-        } catch (error) {
-          console.error('Error:', error);
-          alert('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
-        } finally {
-          hideLoading();
-          event.target.value = '';
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    // ลบหลายรายการ
-    async function deleteSelected() {
-      const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
-      if (checkboxes.length === 0) {
-        alert("กรุณาเลือกรายการที่จะลบ");
-        return;
-      }
-
-      if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
-
-      try {
-        showLoading();
-        const deletePromises = Array.from(checkboxes).map(async (cb) => {
-          const index = parseInt(cb.dataset.index);
-          const doc = documents[index];
-          const response = await fetch(`${SCRIPT_URL}?id=${doc.id}`, {
-            method: 'DELETE'
-          });
-          return response.json();
-        });
-
-        const results = await Promise.all(deletePromises);
-        const successCount = results.filter(r => r.status === "success").length;
-        
-        if (successCount < checkboxes.length) {
-          alert(`ลบสำเร็จ ${successCount} รายการ จาก ${checkboxes.length} รายการ`);
-        }
-        
-        await loadDocuments();
-      } catch (error) {
-        console.error('Error:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูลบางส่วน');
-      } finally {
-        hideLoading();
-      }
-    }
-
-    // เลือกทั้งหมด
-    function toggleAll(masterCheckbox) {
-      const checkboxes = document.querySelectorAll('.rowCheckbox');
-      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
-    }
-
-    // ฟังก์ชันช่วยเหลือ
     function escapeHtml(unsafe) {
       if (!unsafe) return '';
       return unsafe.toString()
@@ -493,8 +264,559 @@
 
     function escapeCsv(unsafe) {
       if (!unsafe) return '';
-      return unsafe.toString().replace(/"/g, '""');
+      // Escape double quotes by doubling them, then enclose in double quotes if it contains comma or double quote
+      const str = unsafe.toString();
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
     }
+
+    // --- API Interaction Functions ---
+    /**
+     * Calls the Google Apps Script web app API.
+     * @param {string} endpoint - The endpoint path (e.g., '?id=xyz' for GET/DELETE params).
+     * @param {string} method - HTTP method (GET, POST, PUT, DELETE).
+     * @param {object|null} data - Data payload for POST/PUT.
+     * @returns {Promise<object>} JSON response from the API.
+     * @throws {Error} If API call fails or returns an error status.
+     */
+    async function callApi(endpoint = '', method = 'GET', data = null) {
+      try {
+        showLoading();
+        const url = `${SCRIPT_URL}${endpoint}`;
+        const options = {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        };
+        
+        if (data) {
+          options.body = JSON.stringify(data);
+        }
+        
+        // Add timestamp to prevent caching for GET requests
+        const cacheBuster = url.includes('?') ? '&' : '?';
+        const fullUrl = url + (method === 'GET' ? cacheBuster + '_=' + Date.now() : '');
+        
+        const response = await fetch(fullUrl, options);
+        
+        if (!response.ok) {
+          // Attempt to parse error message from response body if available
+          let errorText = `HTTP error! status: ${response.status}`;
+          try {
+            const errorJson = await response.json();
+            errorText = errorJson.message || errorText;
+          } catch (jsonError) {
+            // Fallback to text if JSON parsing fails
+            errorText = await response.text();
+          }
+          throw new Error(errorText);
+        }
+        
+        const result = await response.json();
+        
+        if (result.status === "error") {
+          throw new Error(result.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('API Error:', error);
+        throw error; // Re-throw the error to be caught by the calling function
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // --- Document Management Functions ---
+
+    /**
+     * Loads documents from the API and renders the table.
+     */
+    async function loadDocuments() {
+      try {
+        documents = await callApi();
+        // Mark duplicates for display purposes
+        const nameCounts = {};
+        documents.forEach(doc => {
+          const lowerCaseName = doc.name.toLowerCase();
+          nameCounts[lowerCaseName] = (nameCounts[lowerCaseName] || 0) + 1;
+        });
+        documents.forEach(doc => {
+          doc.isDuplicate = nameCounts[doc.name.toLowerCase()] > 1;
+        });
+        renderTable();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        showAlert('error', 'เกิดข้อผิดพลาดในการโหลดข้อมูล', error.message);
+      }
+    }
+
+    /**
+     * Adds a new document to the system.
+     */
+    async function addDocument() {
+      const name = document.getElementById('docName').value.trim();
+      const status = document.getElementById('docStatus').value;
+      const date = document.getElementById('docDate').value;
+
+      if (!name) {
+        showAlert('warning', 'กรุณากรอกชื่อเอกสาร');
+        document.getElementById('docName').focus();
+        return;
+      }
+
+      if (!date) {
+        showAlert('warning', 'กรุณาเลือกวันที่รับคืน');
+        document.getElementById('docDate').focus();
+        return;
+      }
+
+      try {
+        const result = await callApi('', 'POST', { name, status, date });
+        
+        if (result.status === "success") {
+          showAlert('success', result.message || 'เพิ่มเอกสารเรียบร้อยแล้ว');
+          await loadDocuments(); // Reload all data to reflect changes and new IDs
+          clearInputs();
+          document.getElementById('docName').focus();
+        }
+      } catch (error) {
+        console.error('Error adding document:', error);
+        showAlert('error', 'ไม่สามารถเพิ่มเอกสารได้', error.message);
+      }
+    }
+
+    function clearInputs() {
+      document.getElementById('docName').value = '';
+      document.getElementById('docDate').value = '';
+      // Reset status to default
+      document.getElementById('docStatus').value = 'อนุมัติ';
+      updateSelectColor(document.getElementById('docStatus'));
+    }
+
+    /**
+     * Deletes a document by its unique ID.
+     * @param {string} id - The unique ID of the document to delete.
+     * @param {number} docIndex - The original index in the `documents` array (for confirmation message).
+     */
+    async function deleteDocument(id, docIndex) {
+      if (!confirm(`ต้องการลบเอกสาร "${documents[docIndex].name}" ใช่หรือไม่?`)) return;
+      
+      try {
+        const result = await callApi(`?id=${id}`, 'DELETE'); // Pass ID as query param for DELETE
+        
+        if (result.status === "success") {
+          showAlert('success', result.message || 'ลบเอกสารเรียบร้อยแล้ว');
+          await loadDocuments(); // Reload all data
+        }
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        showAlert('error', 'ไม่สามารถลบเอกสารได้', error.message);
+      }
+    }
+
+    /**
+     * Saves edits for a document.
+     * @param {string} id - The unique ID of the document being edited.
+     * @param {number} index - The original index in the `documents` array (for input IDs).
+     */
+    async function saveEdit(id, index) {
+      const name = document.getElementById(`editName${index}`).value.trim();
+      const status = document.getElementById(`editStatus${index}`).value;
+      const date = document.getElementById(`editDate${index}`).value;
+
+      if (!name) {
+        showAlert('warning', 'กรุณากรอกชื่อเอกสาร');
+        document.getElementById(`editName${index}`).focus();
+        return;
+      }
+
+      if (!date) {
+        showAlert('warning', 'กรุณาเลือกวันที่รับคืน');
+        document.getElementById(`editDate${index}`).focus();
+        return;
+      }
+
+      try {
+        const result = await callApi('', 'PUT', { id, name, status, date });
+        
+        if (result.status === "success") {
+          showAlert('success', result.message || 'อัปเดตเอกสารเรียบร้อยแล้ว');
+          await loadDocuments(); // Reload all data
+        }
+      } catch (error) {
+        console.error('Error saving edit:', error);
+        showAlert('error', 'ไม่สามารถอัปเดตเอกสารได้', error.message);
+      }
+    }
+
+    /**
+     * Deletes all selected documents.
+     */
+    async function deleteSelected() {
+      const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
+      if (checkboxes.length === 0) {
+        showAlert('warning', 'กรุณาเลือกรายการที่จะลบ');
+        return;
+      }
+
+      if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
+
+      try {
+        showLoading();
+        // Get unique IDs of selected documents
+        const idsToDelete = Array.from(checkboxes).map(cb => documents[parseInt(cb.dataset.originalIndex)].id);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        let errorMessages = [];
+
+        // Delete one by one to give clear feedback for each
+        for (const id of idsToDelete) {
+          try {
+            const result = await callApi(`?id=${id}`, 'DELETE');
+            if (result.status === "success") {
+              successCount++;
+            } else {
+              errorCount++;
+              errorMessages.push(`ID: ${id} - ${result.message || 'ไม่ทราบข้อผิดพลาด'}`);
+            }
+          } catch (error) {
+            errorCount++;
+            errorMessages.push(`ID: ${id} - ${error.message || 'ไม่ทราบข้อผิดพลาด'}`);
+          }
+        }
+        
+        await loadDocuments(); // Reload after all deletions attempts
+
+        if (errorCount > 0) {
+          showAlert('warning', 
+            `ลบสำเร็จ: ${successCount} รายการ<br>ลบไม่สำเร็จ: ${errorCount} รายการ`,
+            errorMessages.slice(0, 5).join('<br>') + 
+            (errorMessages.length > 5 ? '<br>...และอีก ' + (errorMessages.length - 5) + ' ข้อผิดพลาด' : '')
+          );
+        } else {
+          showAlert('success', `ลบสำเร็จ: ${successCount} รายการ`);
+        }
+      } catch (error) {
+        console.error('Error deleting selected:', error);
+        showAlert('error', 'เกิดข้อผิดพลาดในการลบข้อมูลบางส่วน', error.message);
+      }
+    }
+
+    // --- Table Rendering Functions ---
+
+    /**
+     * Renders/updates the document table based on current `documents` array and search input.
+     */
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const table = document.getElementById('docTable');
+      table.innerHTML = '';
+
+      const filtered = documents
+        .filter(doc =>
+          doc.name.toLowerCase().includes(search) ||
+          doc.status.toLowerCase().includes(search) ||
+          doc.date.includes(search)
+        )
+        .sort((a, b) => {
+          // Sort by duplicate status (duplicates first)
+          if (a.isDuplicate && !b.isDuplicate) return -1;
+          if (!a.isDuplicate && b.isDuplicate) return 1;
+          // Then sort by date (newest first)
+          return new Date(b.date) - new Date(a.date);
+        });
+
+      if (filtered.length === 0) {
+        table.innerHTML = `
+          <tr>
+            <td colspan="5" class="no-data">
+              ${documents.length === 0 ? 'ยังไม่มีข้อมูลเอกสาร' : 'ไม่พบข้อมูลที่ตรงกับการค้นหา'}
+            </td>
+          </tr>
+        `;
+        // Ensure master checkbox is unchecked if no data
+        document.querySelector('th input[type="checkbox"]').checked = false;
+        allChecked = false;
+        return;
+      }
+
+      filtered.forEach(doc => {
+        const row = document.createElement('tr');
+        if (doc.isDuplicate) row.classList.add('duplicate-row');
+
+        // Store original index for checkbox to access original document object
+        const originalIndex = documents.findIndex(d => d.id === doc.id);
+
+        row.innerHTML = `
+          <td><input type="checkbox" class="rowCheckbox" data-original-index="${originalIndex}" ${allChecked ? 'checked' : ''}></td>
+          <td style="text-align:left;">${escapeHtml(doc.name)}</td>
+          <td><span class="status-display status-${doc.status}">${escapeHtml(doc.status)}</span></td>
+          <td>${escapeHtml(doc.date)}</td>
+          <td>
+            <div class="action-container">
+              <button class="action-btn btn-secondary" onclick="editDocument(${originalIndex}, this)">✏️ แก้ไข</button>
+              <button class="action-btn btn-danger" onclick="deleteDocument('${doc.id}', ${originalIndex})">🗑️ ลบ</button>
+            </div>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    /**
+     * Switches a row to edit mode.
+     * @param {number} index - The original index of the document in the `documents` array.
+     * @param {HTMLElement} btn - The "Edit" button element.
+     */
+    function editDocument(index, btn) {
+      const row = btn.closest('tr');
+      const doc = documents[index];
+
+      // Remove any existing edit modes to ensure only one row is editable
+      document.querySelectorAll('.edit-mode').forEach(r => r.classList.remove('edit-mode'));
+      document.querySelectorAll('.action-btn.btn-primary[onclick^="saveEdit("]').forEach(b => {
+          // Re-render the table to revert any unsaved edits
+          renderTable(); 
+      });
+
+      row.classList.add('edit-mode');
+      row.innerHTML = `
+        <td></td>
+        <td><input type="text" value="${escapeHtml(doc.name)}" id="editName${index}" style="width:100%;"></td>
+        <td>
+          <select id="editStatus${index}" onchange="updateSelectColor(this)" style="width:100%;">
+            <option value="อนุมัติ" ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
+            <option value="อนุมัติตามบันทึก" ${doc.status === "อนุมัติตามบันทึก" ? "selected" : ""}>อนุมัติตามบันทึก</option>
+            <option value="แก้ไขเพิ่มเติม" ${doc.status === "แก้ไขเพิ่มเติม" ? "selected" : ""}>แก้ไขเพิ่มเติม</option>
+            <option value="ไม่อนุมัติ" ${doc.status === "ไม่อนุมัติ" ? "selected" : ""}>ไม่อนุมัติ</option>
+            <option value="DONE" ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
+          </select>
+        </td>
+        <td><input type="date" value="${escapeHtml(doc.date)}" id="editDate${index}" style="width:100%;"></td>
+        <td>
+          <div class="action-container">
+            <button class="action-btn btn-primary" onclick="saveEdit('${doc.id}', ${index})">💾 บันทึก</button>
+            <button class="action-btn btn-danger" onclick="renderTable()">❌ ยกเลิก</button>
+          </div>
+        </td>
+      `;
+
+      // Update color of the newly created select element
+      setTimeout(() => {
+        const editSelect = document.getElementById(`editStatus${index}`);
+        if (editSelect) {
+          updateSelectColor(editSelect);
+        }
+      }, 0);
+    }
+
+    // --- CSV Handling Functions ---
+
+    /**
+     * Downloads current document data as a CSV file.
+     */
+    function downloadCSV() {
+      if (documents.length === 0) {
+        showAlert('warning', 'ยังไม่มีข้อมูลให้ดาวน์โหลด');
+        return;
+      }
+
+      const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
+      // Filter out duplicates if you only want unique names in download (optional)
+      // For now, it downloads all data as is from the table, but with proper escaping
+      const rows = documents.map(doc => [doc.name, doc.status, doc.date]);
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // \uFEFF for BOM (Byte Order Mark) for Excel compatibility with Thai
+      csvContent += headers.map(item => escapeCsv(item)).join(",") + "\n"; // Escape headers too
+      rows.forEach(row => {
+        csvContent += row.map(item => escapeCsv(item)).join(",") + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `รายการเอกสาร_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showAlert('success', 'ดาวน์โหลดไฟล์ CSV เรียบร้อยแล้ว');
+    }
+
+    /**
+     * Imports documents from a selected CSV file.
+     * @param {Event} event - The file input change event.
+     */
+    function importCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          showLoading();
+          const lines = e.target.result.split(/\r?\n/); // Handle both \n and \r\n line endings
+          let successCount = 0;
+          let errorCount = 0;
+          let errorMessages = [];
+          
+          // Skip header row if it exists
+          const dataLines = lines[0] && lines[0].toLowerCase().includes('ชื่อเอกสาร') ? lines.slice(1) : lines;
+
+          for (let i = 0; i < dataLines.length; i++) {
+            const line = dataLines[i].trim();
+            if (!line) continue; // Skip empty lines
+            
+            // Regex to split CSV, handles commas inside quotes and escaped quotes
+            // This is a common and reasonably robust regex for simple CSV parsing
+            const matches = line.match(/(?:[^,"']+|"(?:[^"]|"")*"|'(?:[^']|'')*')+/g);
+
+            if (!matches || matches.length < 3) {
+              errorCount++;
+              errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์): รูปแบบข้อมูลไม่ถูกต้อง`);
+              continue;
+            }
+            
+            // Trim whitespace and remove surrounding quotes
+            const parsedValues = matches.map(item => item.replace(/^"|"$/g, '').replace(/^'|'$/g, '').trim());
+            const [name, status, date] = parsedValues;
+
+            // Basic validation for CSV input before sending to API
+            if (!name || !status || !date) {
+                errorCount++;
+                errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์): ข้อมูลไม่ครบถ้วน (ชื่อ: "${name}", สถานะ: "${status}", วันที่: "${date}")`);
+                continue;
+            }
+
+            // Validate date format for YYYY-MM-DD
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                errorCount++;
+                errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์): รูปแบบวันที่ไม่ถูกต้อง (${date} ควรเป็น YYYY-MM-DD)`);
+                continue;
+            }
+            
+            try {
+              const result = await callApi('', 'POST', { name, status, date });
+              if (result.status === "success") {
+                successCount++;
+              } else {
+                errorCount++;
+                errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์, ${name}): ${result.message || 'ไม่ทราบข้อผิดพลาด'}`);
+              }
+            } catch (error) {
+              errorCount++;
+              errorMessages.push(`บรรทัด ${i + 1} (ในไฟล์, ${name}): ${error.message || 'ไม่ทราบข้อผิดพลาด'}`);
+            }
+          }
+          
+          await loadDocuments(); // Reload all documents after import attempts
+          
+          if (errorCount > 0) {
+            showAlert('warning', 
+              `นำเข้าเสร็จสิ้น<br>สำเร็จ: ${successCount} รายการ<br>ไม่สำเร็จ: ${errorCount} รายการ`,
+              errorMessages.slice(0, 5).join('<br>') + 
+              (errorMessages.length > 5 ? `<br>...และอีก ${errorMessages.length - 5} ข้อผิดพลาด` : '')
+            );
+          } else {
+            showAlert('success', `นำเข้าเสร็จสิ้น<br>สำเร็จ: ${successCount} รายการ`);
+          }
+        } catch (error) {
+          console.error('Error importing CSV:', error);
+          showAlert('error', 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล', error.message);
+        } finally {
+          hideLoading();
+          event.target.value = ''; // Clear file input
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- UI Interaction Functions ---
+
+    /**
+     * Toggles all checkboxes in the table.
+     * @param {HTMLInputElement} masterCheckbox - The header checkbox.
+     */
+    function toggleAll(masterCheckbox) {
+      allChecked = masterCheckbox.checked;
+      const checkboxes = document.querySelectorAll('.rowCheckbox');
+      checkboxes.forEach(cb => cb.checked = allChecked);
+    }
+
+    /**
+     * Displays a temporary alert message.
+     * @param {string} type - 'success', 'error', 'warning', or 'info'.
+     * @param {string} message - Main message to display (can include HTML).
+     * @param {string} details - Optional, more detailed message (can include HTML).
+     */
+    function showAlert(type, message, details = '') {
+      const alertDiv = document.createElement('div');
+      alertDiv.style.position = 'fixed';
+      alertDiv.style.top = '20px';
+      alertDiv.style.right = '20px';
+      alertDiv.style.padding = '15px';
+      alertDiv.style.borderRadius = '8px'; /* Slightly larger radius */
+      alertDiv.style.color = 'white';
+      alertDiv.style.zIndex = '1000';
+      alertDiv.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)'; /* Stronger shadow */
+      alertDiv.style.maxWidth = '450px'; /* Slightly wider */
+      alertDiv.style.wordBreak = 'break-word';
+      alertDiv.style.animation = 'fadeIn 0.3s forwards'; /* 'forwards' keeps the final state */
+      alertDiv.style.fontFamily = 'Sarabun, sans-serif'; // Ensure Sarabun font
+
+      if (type === 'success') {
+        alertDiv.style.backgroundColor = '#4CAF50';
+      } else if (type === 'error') {
+        alertDiv.style.backgroundColor = '#f44336';
+      } else if (type === 'warning') {
+        alertDiv.style.backgroundColor = '#FFC107'; /* A bit softer yellow */
+        alertDiv.style.color = '#333';
+      } else { // Default to info
+        alertDiv.style.backgroundColor = '#2196F3';
+      }
+      
+      alertDiv.innerHTML = `
+        <div style="font-weight:600; margin-bottom:5px;">${message}</div>
+        ${details ? `<div style="font-size:12px; opacity: 0.9; margin-top:5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.3);">${details}</div>` : ''}
+      `;
+      
+      document.body.appendChild(alertDiv);
+      
+      setTimeout(() => {
+        alertDiv.style.animation = 'fadeOut 0.3s forwards';
+        alertDiv.addEventListener('animationend', () => {
+          if (alertDiv.parentNode) { // Check if it's still in DOM
+            document.body.removeChild(alertDiv);
+          }
+        }, { once: true }); // Ensure listener is only called once
+      }, 5000); // Display for 5 seconds
+    }
+
+    // --- Event Listeners and Initial Load ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize status select color
+      const statusSelect = document.getElementById('docStatus');
+      updateSelectColor(statusSelect);
+      statusSelect.addEventListener('change', function() {
+        updateSelectColor(this);
+      });
+
+      // Add Enter key listener for input fields to trigger addDocument
+      document.getElementById("docName").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") { e.preventDefault(); addDocument(); }
+      });
+      document.getElementById("docDate").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") { e.preventDefault(); addDocument(); }
+      });
+
+      // Load documents on page load
+      loadDocuments();
+    });
   </script>
 </body>
 </html>
