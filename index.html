@@ -27,7 +27,7 @@
     select {
       padding: 10px;
       margin: 8px 0;
-      width: calc(100% - 22px); /* Account for padding and border */
+      width: calc(100% - 22px);
       box-sizing: border-box;
       font-size: 16px;
       border: 1px solid #ddd;
@@ -80,8 +80,8 @@
     }
     .buttons button {
         width: auto;
-        flex-grow: 1; /* Allow buttons to grow */
-        max-width: 200px; /* Max width for buttons */
+        flex-grow: 1;
+        max-width: 200px;
     }
 
     table {
@@ -97,7 +97,7 @@
       font-size: 14px;
       vertical-align: middle;
       text-align: center;
-      white-space: nowrap; /* Prevent wrapping in table cells */
+      white-space: nowrap;
     }
     th {
       background-color: #e9ecef;
@@ -116,7 +116,7 @@
       background-color: #f5f5f5;
       cursor: pointer;
       transition: background-color 0.2s ease;
-      white-space: nowrap; /* Ensure button text stays on one line */
+      white-space: nowrap;
     }
     .action-btn:hover {
       background-color: #e0e0e0;
@@ -134,14 +134,14 @@
       display: inline-block;
       text-align: center;
       font-weight: bold;
-      min-width: 80px; /* Ensure consistent width for status badges */
+      min-width: 80px;
     }
-    .status-อนุมัติ { background-color: #28a745; } /* Green */
-    .status-อนุมัติตามบันทึก { background-color: #ffc107; color: black; } /* Yellow */
-    .status-แก้ไขเพิ่มเติม { background-color: #fd7e14; color: black; } /* Orange */
-    .status-ไม่อนุมัติ { background-color: #dc3545; } /* Red */
-    .status-DONE { background-color: #007bff; } /* Blue */
-    .duplicate-row { background-color: #ffe0e0; } /* Light red for duplicates */
+    .status-อนุมัติ { background-color: #28a745; }
+    .status-อนุมัติตามบันทึก { background-color: #ffc107; color: black; }
+    .status-แก้ไขเพิ่มเติม { background-color: #fd7e14; color: black; }
+    .status-ไม่อนุมัติ { background-color: #dc3545; }
+    .status-DONE { background-color: #007bff; }
+    .duplicate-row { background-color: #ffe0e0; }
   </style>
 </head>
 <body>
@@ -191,70 +191,58 @@
   </table>
 
   <script>
-    // ******** สำคัญ: เปลี่ยน URL นี้ให้เป็น URL ของ Google Apps Script Web App ของคุณ ********
-    const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbymBRP9rykedn_Nq7qS1Lg0htyu_kdzUmExFXqLV1goRZAU9cTe5kHEhdZJJbjr3ZUTJg/exec'; 
-    // ตัวอย่าง: 'https://script.google.com/macros/s/AKfycby_XXXXXXXXXXXXXXX/exec';
-    // ***********************************************************************************
-
+    // URL ของ Google Apps Script Web App
+    const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbymBRP9rykedn_Nq7qS1Lg0htyu_kdzUmExFXqLV1goRZAU9cTe5kHEhdZJJbjr3ZUTJg/exec';
+    
     let documents = [];
-    let editingDocOriginalName = null; // Stores the original name of the document being edited
+    let editingDocOriginalName = null;
 
-    // Function to load data from Google Sheet
-    function loadFromSheet() {
-      fetch(SHEET_API_URL)
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          // Map data from Google Sheet's header names to friendlier JS object keys
-          documents = data.map(row => ({
-            name: row["ชื่อเอกสาร"],
-            status: row["สถานะ"],
-            date: row["วันที่รับคืน"],
-            isDuplicate: false // This will be checked client-side later if needed
-          }));
-          renderTable();
-        })
-        .catch(err => {
-          alert("ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้ กรุณาตรวจสอบ URL หรือการตั้งค่า Apps Script");
-          console.error("Failed to load data from sheet:", err);
-        });
+    // โหลดข้อมูลจาก Google Sheet
+    async function loadFromSheet() {
+      try {
+        const res = await fetch(SHEET_API_URL);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
+        const data = await res.json();
+        documents = data.map(row => ({
+          name: row["ชื่อเอกสาร"] || '',
+          status: row["สถานะ"] || '',
+          date: row["วันที่รับคืน"] || '',
+          isDuplicate: false
+        }));
+        
+        renderTable();
+      } catch (err) {
+        console.error("Failed to load data:", err);
+        alert("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่หรือตรวจสอบการเชื่อมต่อ");
+      }
     }
 
-    // Function to send data to Google Sheet (add, update, or delete)
-    function sendToSheet(payload) {
-      fetch(SHEET_API_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-          }
-          return res.text(); // Google Apps Script usually returns plain text for success/error messages
-        })
-        .then(data => {
-          console.log("Response from sheet:", data);
-          loadFromSheet(); // Reload data to reflect changes
-          clearInputs();
-          resetFormForAdd();
-          document.getElementById('docName').focus(); // Focus on name input after action
-          // Clear file input after import to allow re-importing same file
-          document.getElementById('csvFileInput').value = '';
-        })
-        .catch(err => {
-          alert(`ไม่สามารถดำเนินการได้: ${payload.action} ข้อมูลไปยัง Google Sheets กรุณาลองใหม่`);
-          console.error(`Failed to ${payload.action} data to sheet:`, err);
+    // ส่งข้อมูลไปยัง Google Sheet
+    async function sendToSheet(payload) {
+      try {
+        const response = await fetch(SHEET_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
         });
+        
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const result = await response.text();
+        console.log("Success:", result);
+        await loadFromSheet();
+        clearInputs();
+        resetFormForAdd();
+      } catch (error) {
+        console.error("Error:", error);
+        alert("เกิดข้อผิดพลาดในการส่งข้อมูล: " + error.message);
+      }
     }
 
-    // Renders (or re-renders) the table with current documents array
+    // แสดงตารางเอกสาร
     function renderTable() {
       const tbody = document.getElementById("docTable");
       tbody.innerHTML = "";
@@ -267,7 +255,6 @@
 
       filteredDocs.forEach(doc => {
         const tr = document.createElement("tr");
-        // Check for client-side duplicates only among currently displayed docs
         const currentDocNames = filteredDocs.map(d => d.name);
         const occurrences = currentDocNames.filter(name => name === doc.name).length;
         tr.className = (occurrences > 1) ? "duplicate-row" : "";
@@ -286,10 +273,10 @@
         `;
         tbody.appendChild(tr);
       });
-      updateSelectAllCheckbox(); // Update the header checkbox state
+      updateSelectAllCheckbox();
     }
 
-    // Handles adding a new document or updating an existing one
+    // เพิ่มหรืออัปเดตเอกสาร
     function addOrUpdateDocument() {
       const name = document.getElementById('docName').value.trim();
       const status = document.getElementById('docStatus').value;
@@ -300,15 +287,14 @@
         return;
       }
 
-      if (editingDocOriginalName) { // If editing an existing document
-        // Check if the new name clashes with another existing document (excluding itself)
+      if (editingDocOriginalName) {
         const isNameTaken = documents.some(doc => doc.name === name && doc.name !== editingDocOriginalName);
         if (isNameTaken) {
           alert("ชื่อเอกสารนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
           return;
         }
         sendToSheet({ action: 'update', originalName: editingDocOriginalName, name, status, date });
-      } else { // Adding a new document
+      } else {
         const isDuplicate = documents.some(doc => doc.name === name);
         if (isDuplicate) {
           alert("ชื่อเอกสารนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
@@ -318,28 +304,28 @@
       }
     }
 
-    // Populates input fields for editing a document
+    // แก้ไขเอกสาร
     function editDocument(nameToEdit) {
       const docToEdit = documents.find(doc => doc.name === nameToEdit);
       if (docToEdit) {
         document.getElementById('docName').value = docToEdit.name;
         document.getElementById('docStatus').value = docToEdit.status;
         document.getElementById('docDate').value = docToEdit.date;
-        editingDocOriginalName = docToEdit.name; // Store the original name for the update operation
+        editingDocOriginalName = docToEdit.name;
 
         document.getElementById('submitButton').textContent = "อัปเดตเอกสาร";
         document.getElementById('cancelButton').style.display = 'inline-block';
-        document.getElementById('docName').readOnly = true; // Prevent changing name during edit to maintain identifier
+        document.getElementById('docName').readOnly = true;
       }
     }
 
-    // Resets the form to "add new document" mode
+    // ยกเลิกการแก้ไข
     function cancelUpdate() {
       clearInputs();
       resetFormForAdd();
     }
 
-    // Helper to reset form elements to default "add" state
+    // รีเซ็ตฟอร์มสำหรับการเพิ่มเอกสารใหม่
     function resetFormForAdd() {
       document.getElementById('submitButton').textContent = "เพิ่มเอกสาร";
       document.getElementById('cancelButton').style.display = 'none';
@@ -347,37 +333,36 @@
       editingDocOriginalName = null;
     }
 
-    // Confirms and initiates deletion of a single document
+    // ยืนยันการลบเอกสาร
     function confirmDelete(nameToDelete) {
-        if (confirm(`คุณต้องการลบเอกสาร "${nameToDelete}" ใช่หรือไม่?`)) {
-            sendToSheet({ action: 'delete', names: [nameToDelete] });
-        }
+      if (confirm(`คุณต้องการลบเอกสาร "${nameToDelete}" ใช่หรือไม่?`)) {
+        sendToSheet({ action: 'delete', names: [nameToDelete] });
+      }
     }
 
-    // Handles deletion of multiple selected documents
+    // ลบเอกสารที่เลือก
     function deleteSelected() {
-        const selectedCheckboxes = Array.from(document.querySelectorAll('.doc-checkbox:checked'));
-        if (selectedCheckboxes.length === 0) {
-            alert("กรุณาเลือกเอกสารที่ต้องการลบ");
-            return;
-        }
+      const selectedCheckboxes = Array.from(document.querySelectorAll('.doc-checkbox:checked'));
+      if (selectedCheckboxes.length === 0) {
+        alert("กรุณาเลือกเอกสารที่ต้องการลบ");
+        return;
+      }
 
-        const namesToDelete = selectedCheckboxes.map(checkbox => checkbox.value);
-
-        if (confirm(`คุณต้องการลบเอกสารที่เลือก ${namesToDelete.length} รายการใช่หรือไม่?`)) {
-            sendToSheet({ action: 'delete', names: namesToDelete });
-        }
+      const namesToDelete = selectedCheckboxes.map(checkbox => checkbox.value);
+      if (confirm(`คุณต้องการลบเอกสารที่เลือก ${namesToDelete.length} รายการใช่หรือไม่?`)) {
+        sendToSheet({ action: 'delete', names: namesToDelete });
+      }
     }
 
-    // Clears the input fields
+    // ล้างข้อมูลในฟอร์ม
     function clearInputs() {
       document.getElementById('docName').value = "";
       document.getElementById('docDate').value = "";
-      document.getElementById('docStatus').selectedIndex = 0; // Reset to first option
-      document.querySelector('th input[type="checkbox"]').checked = false; // Uncheck select all
+      document.getElementById('docStatus').selectedIndex = 0;
+      document.querySelector('th input[type="checkbox"]').checked = false;
     }
 
-    // Toggles all checkboxes in the table
+    // เลือกหรือยกเลิกเลือกทั้งหมด
     function toggleAll(source) {
       const checkboxes = document.querySelectorAll('.doc-checkbox');
       checkboxes.forEach(checkbox => {
@@ -385,7 +370,7 @@
       });
     }
 
-    // Updates the state of the "select all" checkbox based on individual checkboxes
+    // อัปเดตสถานะ checkbox "เลือกทั้งหมด"
     function updateSelectAllCheckbox() {
       const allCheckboxes = document.querySelectorAll('.doc-checkbox');
       const checkedCheckboxes = document.querySelectorAll('.doc-checkbox:checked');
@@ -406,100 +391,87 @@
       }
     }
 
-    // Event listener for individual checkboxes to update the "select all" state
+    // นำเข้าข้อมูลจากไฟล์ CSV
+    function importCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const csv = e.target.result;
+        const lines = csv.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        
+        if (lines.length === 0) {
+          alert("ไฟล์ CSV ว่างเปล่า");
+          return;
+        }
+
+        const importedDocs = [];
+        lines.forEach(line => {
+          const parts = line.split(',');
+          if (parts.length >= 3) {
+            const name = parts[0].trim();
+            const status = parts[1].trim();
+            const date = parts[2].trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              console.warn(`Skipping row due to invalid date format: ${line}`);
+              return;
+            }
+            importedDocs.push({ name, status, date });
+          }
+        });
+
+        if (importedDocs.length === 0) {
+          alert("ไม่พบข้อมูลเอกสารที่ถูกต้องในไฟล์ CSV");
+          return;
+        }
+        
+        importedDocs.forEach(doc => {
+          const isDuplicateOnImport = documents.some(existingDoc => existingDoc.name === doc.name);
+          if (!isDuplicateOnImport) {
+            sendToSheet({ action: 'add', name: doc.name, status: doc.status, date: doc.date });
+          }
+        });
+        alert(`นำเข้าเอกสารสำเร็จ ${importedDocs.length} รายการ`);
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    // ดาวน์โหลดข้อมูลเป็นไฟล์ CSV
+    function downloadCSV() {
+      let csvContent = "ชื่อเอกสาร,สถานะ,วันที่รับคืน\n";
+      documents.forEach(doc => {
+        const escapedName = `"${doc.name.replace(/"/g, '""')}"`;
+        const escapedStatus = `"${doc.status.replace(/"/g, '""')}"`;
+        const escapedDate = `"${doc.date.replace(/"/g, '""')}"`;
+        csvContent += `${escapedName},${escapedStatus},${escapedDate}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;\uFEFF' });
+      const link = document.createElement('a');
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'rfa_rfi_documents.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+
+    // โหลดข้อมูลเมื่อหน้าเว็บโหลดเสร็จ
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFromSheet();
+      document.getElementById('docName').focus();
+    });
+
+    // อัปเดต checkbox "เลือกทั้งหมด" เมื่อมีการเลือกเอกสาร
     document.addEventListener('change', (event) => {
       if (event.target.classList.contains('doc-checkbox')) {
         updateSelectAllCheckbox();
       }
-    });
-
-    // Imports documents from a CSV file
-    function importCSV(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const csv = e.target.result;
-            const lines = csv.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-            
-            if (lines.length === 0) {
-                alert("ไฟล์ CSV ว่างเปล่า");
-                return;
-            }
-
-            // Assuming first row is headers if not skipped
-            // If your CSV has headers and you want to skip them, uncomment the next line:
-            // const headers = lines.shift().split(',').map(h => h.trim()); 
-
-            const importedDocs = [];
-
-            lines.forEach(line => {
-                const parts = line.split(','); // Assuming comma-separated values
-                if (parts.length >= 3) { // Ensure enough columns
-                    const name = parts[0].trim();
-                    const status = parts[1].trim();
-                    const date = parts[2].trim();
-                    // Basic validation for date format (YYYY-MM-DD for input type="date")
-                    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-                        console.warn(`Skipping row due to invalid date format: ${line}`);
-                        return; // Skip this row if date format is not YYYY-MM-DD
-                    }
-                    importedDocs.push({ name, status, date });
-                } else {
-                    console.warn(`Skipping row due to insufficient columns: ${line}`);
-                }
-            });
-
-            if (importedDocs.length === 0) {
-                alert("ไม่พบข้อมูลเอกสารที่ถูกต้องในไฟล์ CSV (ต้องมี ชื่อเอกสาร, สถานะ, วันที่รับคืน)");
-                return;
-            }
-            
-            // Send each imported document as an 'add' action
-            // You might want to implement batch adding or more sophisticated duplicate handling here
-            importedDocs.forEach(doc => {
-                // Check if document with same name already exists to prevent explicit duplicates
-                const isDuplicateOnImport = documents.some(existingDoc => existingDoc.name === doc.name);
-                if (!isDuplicateOnImport) {
-                    sendToSheet({ action: 'add', name: doc.name, status: doc.status, date: doc.date });
-                } else {
-                    console.warn(`Skipping import of duplicate document name: ${doc.name}`);
-                }
-            });
-            alert(`นำเข้าเอกสารสำเร็จ ${importedDocs.length} รายการ (อาจมีรายการที่ซ้ำกันถูกข้ามไป)`);
-            event.target.value = ''; // Clear the file input
-        };
-        reader.readAsText(file);
-    }
-
-    // Downloads current documents as a CSV file
-    function downloadCSV() {
-        let csvContent = "ชื่อเอกสาร,สถานะ,วันที่รับคืน\n"; // Headers in Thai
-        documents.forEach(doc => {
-            // Escape commas within data if necessary (e.g., wrap in quotes)
-            const escapedName = `"${doc.name.replace(/"/g, '""')}"`;
-            const escapedStatus = `"${doc.status.replace(/"/g, '""')}"`;
-            const escapedDate = `"${doc.date.replace(/"/g, '""')}"`;
-            csvContent += `${escapedName},${escapedStatus},${escapedDate}\n`;
-        });
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;\uFEFF' }); // Added BOM for proper UTF-8 in Excel
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', 'rfa_rfi_documents.csv');
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    }
-
-    // Initial load of documents when the page is ready
-    document.addEventListener('DOMContentLoaded', () => {
-      loadFromSheet();
     });
   </script>
 </body>
