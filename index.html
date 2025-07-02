@@ -10,46 +10,121 @@
       max-width: 1000px;
       margin: auto;
       padding: 20px;
+      background-color: #f4f4f4;
+      color: #333;
     }
-    input, select, button {
-      padding: 6px;
-      margin: 4px 0;
-      width: 100%;
+    h2 {
+      text-align: center;
+      color: #0056b3;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="date"],
+    select {
+      padding: 10px;
+      margin: 8px 0;
+      width: calc(100% - 22px); /* Account for padding and border */
       box-sizing: border-box;
-      font-size: 14px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
     }
+    input[type="text"][readonly] {
+        background-color: #e9e9e9;
+        cursor: not-allowed;
+    }
+    button {
+      padding: 10px 15px;
+      margin-top: 10px;
+      width: auto;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button#cancelButton {
+        background-color: #dc3545;
+        margin-left: 10px;
+    }
+    button#cancelButton:hover {
+        background-color: #c82333;
+    }
+    .search {
+      margin-top: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
+    .buttons {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+    .buttons input[type="file"] {
+        width: auto;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+    .buttons button {
+        width: auto;
+        flex-grow: 1; /* Allow buttons to grow */
+        max-width: 200px; /* Max width for buttons */
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 16px;
+      margin-top: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 2px 6px;
-      font-size: 13px;
+      border: 1px solid #e0e0e0;
+      padding: 8px 12px;
+      font-size: 14px;
       vertical-align: middle;
-      white-space: nowrap;
       text-align: center;
+      white-space: nowrap; /* Prevent wrapping in table cells */
     }
     th {
-      background-color: #f2f2f2;
+      background-color: #e9ecef;
+      font-weight: bold;
+      color: #333;
     }
-    .search, .buttons {
-      margin-top: 20px;
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
     }
     .action-btn {
       font-size: 12px;
-      padding: 2px 6px;
-      margin: 0 2px;
+      padding: 4px 8px;
+      margin: 2px;
       border: 1px solid #aaa;
       border-radius: 3px;
       background-color: #f5f5f5;
       cursor: pointer;
+      transition: background-color 0.2s ease;
+      white-space: nowrap; /* Ensure button text stays on one line */
+    }
+    .action-btn:hover {
+      background-color: #e0e0e0;
     }
     .action-container {
       display: flex;
       justify-content: center;
-      gap: 4px;
+      gap: 5px;
       flex-wrap: nowrap;
     }
     .status-display {
@@ -58,24 +133,25 @@
       border-radius: 4px;
       display: inline-block;
       text-align: center;
-      min-width: 70px;
+      font-weight: bold;
+      min-width: 80px; /* Ensure consistent width for status badges */
     }
-    .status-อนุมัติ { background-color: #228B22; }
-    .status-อนุมัติตามบันทึก { background-color: #90EE90; color: black; }
-    .status-แก้ไขเพิ่มเติม { background-color: #FFA500; color: black; }
-    .status-ไม่อนุมัติ { background-color: #FF4500; }
-    .status-DONE { background-color: #1E90FF; }
-    .duplicate-row { background-color: #ffcccc; }
+    .status-อนุมัติ { background-color: #28a745; } /* Green */
+    .status-อนุมัติตามบันทึก { background-color: #ffc107; color: black; } /* Yellow */
+    .status-แก้ไขเพิ่มเติม { background-color: #fd7e14; color: black; } /* Orange */
+    .status-ไม่อนุมัติ { background-color: #dc3545; } /* Red */
+    .status-DONE { background-color: #007bff; } /* Blue */
+    .duplicate-row { background-color: #ffe0e0; } /* Light red for duplicates */
   </style>
 </head>
 <body>
 
   <h2>ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
 
-  <label>ชื่อเอกสาร</label>
+  <label for="docName">ชื่อเอกสาร</label>
   <input type="text" id="docName" placeholder="เช่น RFA-000001">
 
-  <label>สถานะเอกสาร</label>
+  <label for="docStatus">สถานะเอกสาร</label>
   <select id="docStatus">
     <option value="อนุมัติ">อนุมัติ</option>
     <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
@@ -84,17 +160,19 @@
     <option value="DONE">DONE</option>
   </select>
 
-  <label>วันที่รับคืน</label>
+  <label for="docDate">วันที่รับคืน</label>
   <input type="date" id="docDate">
 
-  <button onclick="addDocument()">เพิ่มเอกสาร</button>
+  <button onclick="addOrUpdateDocument()" id="submitButton">เพิ่มเอกสาร</button>
+  <button onclick="cancelUpdate()" id="cancelButton" style="display: none;">ยกเลิก</button>
 
   <div class="search">
-    <input type="text" id="searchInput" placeholder="ค้นหาเอกสารหรือสถานะ..." oninput="renderTable()">
+    <label for="searchInput">ค้นหาเอกสาร</label>
+    <input type="text" id="searchInput" placeholder="ค้นหาชื่อเอกสารหรือสถานะ..." oninput="renderTable()">
   </div>
 
   <div class="buttons">
-    <input type="file" accept=".csv" onchange="importCSV(event)">
+    <input type="file" accept=".csv" onchange="importCSV(event)" id="csvFileInput">
     <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
     <button onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
   </div>
@@ -113,123 +191,106 @@
   </table>
 
   <script>
-    const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycby9SJzfB4zC239aT5v6TKPlJY_srZAwW70L3nzdEqOGwkkXn_4cTEa7zZHuuAvcRyTY5Q/exec';
+    // ******** สำคัญ: เปลี่ยน URL นี้ให้เป็น URL ของ Google Apps Script Web App ของคุณ ********
+    const SHEET_API_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE'; 
+    // ตัวอย่าง: 'https://script.google.com/macros/s/AKfycby_XXXXXXXXXXXXXXX/exec';
+    // ***********************************************************************************
 
     let documents = [];
+    let editingDocOriginalName = null; // Stores the original name of the document being edited
 
+    // Function to load data from Google Sheet
     function loadFromSheet() {
       fetch(SHEET_API_URL)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          return res.json();
+        })
         .then(data => {
+          // Map data from Google Sheet's header names to friendlier JS object keys
           documents = data.map(row => ({
             name: row["ชื่อเอกสาร"],
             status: row["สถานะ"],
             date: row["วันที่รับคืน"],
+            isDuplicate: false // This will be checked client-side later if needed
           }));
           renderTable();
         })
         .catch(err => {
-          alert("ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้");
-          console.error(err);
+          alert("ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้ กรุณาตรวจสอบ URL หรือการตั้งค่า Apps Script");
+          console.error("Failed to load data from sheet:", err);
         });
     }
 
-    function saveToSheet(doc) {
+    // Function to send data to Google Sheet (add, update, or delete)
+    function sendToSheet(payload) {
       fetch(SHEET_API_URL, {
         method: 'POST',
-        body: JSON.stringify({
-          name: doc.name,
-          status: doc.status,
-          date: doc.date
-        }),
+        body: JSON.stringify(payload),
         headers: {
           'Content-Type': 'application/json'
         }
       })
-      .then(res => res.text())
-      .then(data => console.log("บันทึกข้อมูลสำเร็จ:", data))
-      .catch(err => {
-        alert("ไม่สามารถบันทึกข้อมูลไปยัง Google Sheets ได้");
-        console.error(err);
-      });
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          return res.text(); // Google Apps Script usually returns plain text for success/error messages
+        })
+        .then(data => {
+          console.log("Response from sheet:", data);
+          loadFromSheet(); // Reload data to reflect changes
+          clearInputs();
+          resetFormForAdd();
+          document.getElementById('docName').focus(); // Focus on name input after action
+          // Clear file input after import to allow re-importing same file
+          document.getElementById('csvFileInput').value = '';
+        })
+        .catch(err => {
+          alert(`ไม่สามารถดำเนินการได้: ${payload.action} ข้อมูลไปยัง Google Sheets กรุณาลองใหม่`);
+          console.error(`Failed to ${payload.action} data to sheet:`, err);
+        });
     }
 
+    // Renders (or re-renders) the table with current documents array
     function renderTable() {
       const tbody = document.getElementById("docTable");
-      const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
-
       tbody.innerHTML = "";
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
-      documents.forEach((doc, index) => {
-        // ค้นหา
-        if (
-          doc.name.toLowerCase().includes(searchTerm) || 
-          doc.status.toLowerCase().includes(searchTerm)
-        ) {
-          // เช็คซ้ำ
-          const isDuplicate = documents.filter(d => d.name === doc.name).length > 1;
+      const filteredDocs = documents.filter(doc =>
+        doc.name.toLowerCase().includes(searchTerm) ||
+        doc.status.toLowerCase().includes(searchTerm)
+      );
 
-          const tr = document.createElement("tr");
-          if (isDuplicate) tr.classList.add("duplicate-row");
-
-          // กำหนด class สถานะ (ลบช่องว่าง)
-          const statusClass = "status-" + doc.status.replace(/\s+/g, '');
-
-          tr.innerHTML = `
-            <td><input type="checkbox" class="select-row" data-index="${index}"></td>
-            <td>${doc.name}</td>
-            <td><span class="status-display ${statusClass}">${doc.status}</span></td>
-            <td>${doc.date}</td>
-            <td class="action-container">
-              <button class="action-btn" onclick="editDocument(${index})">แก้ไข</button>
-              <button class="action-btn" onclick="deleteDocument(${index})">ลบ</button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        }
+      filteredDocs.forEach(doc => {
+        const tr = document.createElement("tr");
+        // Check for client-side duplicates only among currently displayed docs
+        const currentDocNames = filteredDocs.map(d => d.name);
+        const occurrences = currentDocNames.filter(name => name === doc.name).length;
+        tr.className = (occurrences > 1) ? "duplicate-row" : "";
+        
+        tr.innerHTML = `
+          <td><input type="checkbox" class="doc-checkbox" value="${doc.name}"></td>
+          <td>${doc.name}</td>
+          <td><span class="status-display status-${doc.status.replace(/\s/g, '')}">${doc.status}</span></td>
+          <td>${doc.date}</td>
+          <td>
+            <div class="action-container">
+              <button class="action-btn" onclick="editDocument('${doc.name.replace(/'/g, "\\'")}')">แก้ไข</button>
+              <button class="action-btn" onclick="confirmDelete('${doc.name.replace(/'/g, "\\'")}')">ลบ</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
       });
+      updateSelectAllCheckbox(); // Update the header checkbox state
     }
 
-    function toggleAll(source) {
-      const checkboxes = document.querySelectorAll('.select-row');
-      checkboxes.forEach(cb => cb.checked = source.checked);
-    }
-
-    function deleteSelected() {
-      const checkboxes = document.querySelectorAll('.select-row:checked');
-      if (checkboxes.length === 0) {
-        alert("กรุณาเลือกอย่างน้อย 1 รายการที่จะลบ");
-        return;
-      }
-      if (!confirm(`ยืนยันการลบ ${checkboxes.length} รายการ?`)) return;
-
-      // ดึง index ที่เลือกมา แล้วลบเอกสารตาม index (ลบจากหลังไปหน้า)
-      const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-index')));
-      indexesToDelete.sort((a,b) => b - a).forEach(i => documents.splice(i, 1));
-      renderTable();
-    }
-
-    function deleteDocument(index) {
-      if (confirm('ยืนยันการลบเอกสารนี้?')) {
-        documents.splice(index, 1);
-        renderTable();
-      }
-    }
-
-    function editDocument(index) {
-      const doc = documents[index];
-      document.getElementById('docName').value = doc.name;
-      document.getElementById('docStatus').value = doc.status;
-      document.getElementById('docDate').value = doc.date;
-
-      // ลบข้อมูลที่แก้ไขออกจาก list ก่อน เพื่อไม่ให้ซ้ำเวลาเพิ่มใหม่
-      documents.splice(index, 1);
-      renderTable();
-
-      document.getElementById('docName').focus();
-    }
-
-    function addDocument() {
+    // Handles adding a new document or updating an existing one
+    function addOrUpdateDocument() {
       const name = document.getElementById('docName').value.trim();
       const status = document.getElementById('docStatus').value;
       const date = document.getElementById('docDate').value;
@@ -239,68 +300,207 @@
         return;
       }
 
-      const isDuplicate = documents.some(doc => doc.name === name);
-      const doc = { name, status, date };
-
-      documents.unshift(doc);
-      saveToSheet(doc);
-
-      clearInputs();
-      renderTable();
+      if (editingDocOriginalName) { // If editing an existing document
+        // Check if the new name clashes with another existing document (excluding itself)
+        const isNameTaken = documents.some(doc => doc.name === name && doc.name !== editingDocOriginalName);
+        if (isNameTaken) {
+          alert("ชื่อเอกสารนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+          return;
+        }
+        sendToSheet({ action: 'update', originalName: editingDocOriginalName, name, status, date });
+      } else { // Adding a new document
+        const isDuplicate = documents.some(doc => doc.name === name);
+        if (isDuplicate) {
+          alert("ชื่อเอกสารนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น");
+          return;
+        }
+        sendToSheet({ action: 'add', name, status, date });
+      }
     }
 
+    // Populates input fields for editing a document
+    function editDocument(nameToEdit) {
+      const docToEdit = documents.find(doc => doc.name === nameToEdit);
+      if (docToEdit) {
+        document.getElementById('docName').value = docToEdit.name;
+        document.getElementById('docStatus').value = docToEdit.status;
+        document.getElementById('docDate').value = docToEdit.date;
+        editingDocOriginalName = docToEdit.name; // Store the original name for the update operation
+
+        document.getElementById('submitButton').textContent = "อัปเดตเอกสาร";
+        document.getElementById('cancelButton').style.display = 'inline-block';
+        document.getElementById('docName').readOnly = true; // Prevent changing name during edit to maintain identifier
+      }
+    }
+
+    // Resets the form to "add new document" mode
+    function cancelUpdate() {
+      clearInputs();
+      resetFormForAdd();
+    }
+
+    // Helper to reset form elements to default "add" state
+    function resetFormForAdd() {
+      document.getElementById('submitButton').textContent = "เพิ่มเอกสาร";
+      document.getElementById('cancelButton').style.display = 'none';
+      document.getElementById('docName').readOnly = false;
+      editingDocOriginalName = null;
+    }
+
+    // Confirms and initiates deletion of a single document
+    function confirmDelete(nameToDelete) {
+        if (confirm(`คุณต้องการลบเอกสาร "${nameToDelete}" ใช่หรือไม่?`)) {
+            sendToSheet({ action: 'delete', names: [nameToDelete] });
+        }
+    }
+
+    // Handles deletion of multiple selected documents
+    function deleteSelected() {
+        const selectedCheckboxes = Array.from(document.querySelectorAll('.doc-checkbox:checked'));
+        if (selectedCheckboxes.length === 0) {
+            alert("กรุณาเลือกเอกสารที่ต้องการลบ");
+            return;
+        }
+
+        const namesToDelete = selectedCheckboxes.map(checkbox => checkbox.value);
+
+        if (confirm(`คุณต้องการลบเอกสารที่เลือก ${namesToDelete.length} รายการใช่หรือไม่?`)) {
+            sendToSheet({ action: 'delete', names: namesToDelete });
+        }
+    }
+
+    // Clears the input fields
     function clearInputs() {
       document.getElementById('docName').value = "";
       document.getElementById('docDate').value = "";
-      document.getElementById('docStatus').selectedIndex = 0;
+      document.getElementById('docStatus').selectedIndex = 0; // Reset to first option
+      document.querySelector('th input[type="checkbox"]').checked = false; // Uncheck select all
     }
 
-    // --- โค้ดสำหรับ import/export CSV (ถ้าต้องการใช้) ---
-    function importCSV(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const text = e.target.result;
-        const rows = text.split('\n').filter(r => r.trim() !== '');
-        rows.forEach(row => {
-          const cols = row.split(',');
-          if (cols.length >= 3) {
-            const doc = {
-              name: cols[0].trim(),
-              status: cols[1].trim(),
-              date: cols[2].trim()
-            };
-            documents.push(doc);
-          }
-        });
-        renderTable();
-      };
-      reader.readAsText(file);
-      event.target.value = ""; // รีเซ็ตไฟล์ input
-    }
-
-    function downloadCSV() {
-      let csv = "ชื่อเอกสาร,สถานะ,วันที่รับคืน\n";
-      documents.forEach(doc => {
-        csv += `"${doc.name}","${doc.status}","${doc.date}"\n`;
+    // Toggles all checkboxes in the table
+    function toggleAll(source) {
+      const checkboxes = document.querySelectorAll('.doc-checkbox');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = source.checked;
       });
-      const blob = new Blob([csv], {type: 'text/csv'});
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'documents.csv';
-      a.click();
-
-      URL.revokeObjectURL(url);
     }
 
+    // Updates the state of the "select all" checkbox based on individual checkboxes
+    function updateSelectAllCheckbox() {
+      const allCheckboxes = document.querySelectorAll('.doc-checkbox');
+      const checkedCheckboxes = document.querySelectorAll('.doc-checkbox:checked');
+      const selectAllCheckbox = document.querySelector('th input[type="checkbox"]');
+
+      if (allCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      } else if (checkedCheckboxes.length === allCheckboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+      } else if (checkedCheckboxes.length > 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+      } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      }
+    }
+
+    // Event listener for individual checkboxes to update the "select all" state
+    document.addEventListener('change', (event) => {
+      if (event.target.classList.contains('doc-checkbox')) {
+        updateSelectAllCheckbox();
+      }
+    });
+
+    // Imports documents from a CSV file
+    function importCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const csv = e.target.result;
+            const lines = csv.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            
+            if (lines.length === 0) {
+                alert("ไฟล์ CSV ว่างเปล่า");
+                return;
+            }
+
+            // Assuming first row is headers if not skipped
+            // If your CSV has headers and you want to skip them, uncomment the next line:
+            // const headers = lines.shift().split(',').map(h => h.trim()); 
+
+            const importedDocs = [];
+
+            lines.forEach(line => {
+                const parts = line.split(','); // Assuming comma-separated values
+                if (parts.length >= 3) { // Ensure enough columns
+                    const name = parts[0].trim();
+                    const status = parts[1].trim();
+                    const date = parts[2].trim();
+                    // Basic validation for date format (YYYY-MM-DD for input type="date")
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                        console.warn(`Skipping row due to invalid date format: ${line}`);
+                        return; // Skip this row if date format is not YYYY-MM-DD
+                    }
+                    importedDocs.push({ name, status, date });
+                } else {
+                    console.warn(`Skipping row due to insufficient columns: ${line}`);
+                }
+            });
+
+            if (importedDocs.length === 0) {
+                alert("ไม่พบข้อมูลเอกสารที่ถูกต้องในไฟล์ CSV (ต้องมี ชื่อเอกสาร, สถานะ, วันที่รับคืน)");
+                return;
+            }
+            
+            // Send each imported document as an 'add' action
+            // You might want to implement batch adding or more sophisticated duplicate handling here
+            importedDocs.forEach(doc => {
+                // Check if document with same name already exists to prevent explicit duplicates
+                const isDuplicateOnImport = documents.some(existingDoc => existingDoc.name === doc.name);
+                if (!isDuplicateOnImport) {
+                    sendToSheet({ action: 'add', name: doc.name, status: doc.status, date: doc.date });
+                } else {
+                    console.warn(`Skipping import of duplicate document name: ${doc.name}`);
+                }
+            });
+            alert(`นำเข้าเอกสารสำเร็จ ${importedDocs.length} รายการ (อาจมีรายการที่ซ้ำกันถูกข้ามไป)`);
+            event.target.value = ''; // Clear the file input
+        };
+        reader.readAsText(file);
+    }
+
+    // Downloads current documents as a CSV file
+    function downloadCSV() {
+        let csvContent = "ชื่อเอกสาร,สถานะ,วันที่รับคืน\n"; // Headers in Thai
+        documents.forEach(doc => {
+            // Escape commas within data if necessary (e.g., wrap in quotes)
+            const escapedName = `"${doc.name.replace(/"/g, '""')}"`;
+            const escapedStatus = `"${doc.status.replace(/"/g, '""')}"`;
+            const escapedDate = `"${doc.date.replace(/"/g, '""')}"`;
+            csvContent += `${escapedName},${escapedStatus},${escapedDate}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;\uFEFF' }); // Added BOM for proper UTF-8 in Excel
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'rfa_rfi_documents.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    // Initial load of documents when the page is ready
     document.addEventListener('DOMContentLoaded', () => {
       loadFromSheet();
     });
   </script>
-
 </body>
 </html>
