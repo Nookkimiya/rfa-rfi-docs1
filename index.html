@@ -44,7 +44,7 @@
       border: 1px solid #aaa;
       border-radius: 3px;
       background-color: #f5f5f5;
-      cursor: pointer;
+      cursor: not-allowed;
     }
     .action-container {
       display: flex;
@@ -93,7 +93,6 @@
   </div>
 
   <div class="buttons">
-    <input type="file" accept=".csv" onchange="importCSV(event)">
     <button onclick="downloadCSV()">📥 ดาวน์โหลด CSV</button>
     <button onclick="deleteSelected()">🗑️ ลบที่เลือก</button>
   </div>
@@ -112,147 +111,148 @@
   </table>
 
   <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbwEsJF7FY9ewUYA8n90ePatEFuNbtkN007teGvms0y4yuYddGb_cwdb4xVpsQeuTlqiiw/exec";
-  let documents = [];
+    const API_URL = "https://script.google.com/macros/s/AKfycbwEsJF7FY9ewUYA8n90ePatEFuNbtkN007teGvms0y4yuYddGb_cwdb4xVpsQeuTlqiiw/exec";
+    let documents = [];
 
-  function updateSelectColor(select) {
-    const value = select.value;
-    select.className = '';
-    select.classList.add('status-display', `status-${value}`);
-  }
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    const statusSelect = document.getElementById('docStatus');
-    updateSelectColor(statusSelect);
-    statusSelect.addEventListener('change', function () {
-      updateSelectColor(this);
-    });
-
-    document.getElementById("docName").addEventListener("keypress", function (e) {
-      if (e.key === "Enter") addDocument();
-    });
-    document.getElementById("docDate").addEventListener("keypress", function (e) {
-      if (e.key === "Enter") addDocument();
-    });
-
-    await fetchDocumentsFromSheet();
-  });
-
-  async function fetchDocumentsFromSheet() {
-    try {
-      const response = await fetch(API_URL);
-      const data = await response.json();
-      documents = data.reverse().map(doc => ({
-        ...doc,
-        isDuplicate: false
-      }));
-      renderTable();
-    } catch (error) {
-      alert("เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Google Sheets");
+    function updateSelectColor(select) {
+      const value = select.value;
+      select.className = '';
+      select.classList.add('status-display', `status-${value}`);
     }
-  }
 
-  async function saveToGoogleSheet(doc) {
-    try {
-      await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(doc),
-        headers: { "Content-Type": "application/json" }
+    document.addEventListener('DOMContentLoaded', async () => {
+      const statusSelect = document.getElementById('docStatus');
+      updateSelectColor(statusSelect);
+      statusSelect.addEventListener('change', function () {
+        updateSelectColor(this);
       });
-    } catch (error) {
-      alert("ไม่สามารถบันทึกข้อมูลได้");
-    }
-  }
 
-  async function addDocument() {
-    const name = document.getElementById('docName').value.trim();
-    const status = document.getElementById('docStatus').value;
-    const date = document.getElementById('docDate').value;
+      document.getElementById("docName").addEventListener("keypress", function (e) {
+        if (e.key === "Enter") addDocument();
+      });
+      document.getElementById("docDate").addEventListener("keypress", function (e) {
+        if (e.key === "Enter") addDocument();
+      });
 
-    if (!name || !date) {
-      alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
-      return;
-    }
-
-    const isDuplicate = documents.some(doc => doc.name === name);
-    const newDoc = { name, status, date, isDuplicate };
-
-    await saveToGoogleSheet(newDoc);
-    clearInputs();
-    document.getElementById('docName').focus();
-    await fetchDocumentsFromSheet();
-  }
-
-  function clearInputs() {
-    document.getElementById('docName').value = '';
-    document.getElementById('docDate').value = '';
-  }
-
-  function renderTable() {
-    const search = document.getElementById('searchInput').value.toLowerCase();
-    const table = document.getElementById('docTable');
-    table.innerHTML = '';
-
-    const filtered = documents.map((doc, index) => ({ ...doc, index }))
-      .filter(doc =>
-        doc.name.toLowerCase().includes(search) ||
-        doc.status.includes(search)
-      );
-
-    if (filtered.length === 0) {
-      table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
-      return;
-    }
-
-    filtered.forEach(doc => {
-      const row = document.createElement('tr');
-      if (doc.isDuplicate) row.classList.add('duplicate-row');
-
-      row.innerHTML = `
-        <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
-        <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
-        <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
-        <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
-        <td>
-          <div class="action-container">
-            <button class="action-btn" disabled>✏️</button>
-            <button class="action-btn" disabled>🗑️</button>
-          </div>
-        </td>
-      `;
-      table.appendChild(row);
-    });
-  }
-
-  function downloadCSV() {
-    if (documents.length === 0) {
-      alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
-      return;
-    }
-
-    const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
-    const rows = documents.map(doc => [doc.name, doc.status, doc.date]);
-
-    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-    csvContent += headers.join(",") + "\n";
-    rows.forEach(row => {
-      csvContent += row.map(item => `"${item}"`).join(",") + "\n";
+      await fetchDocumentsFromSheet();
     });
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "รายการเอกสาร.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+    async function fetchDocumentsFromSheet() {
+      try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        documents = data.reverse().map(doc => ({ ...doc, isDuplicate: false }));
+        renderTable();
+      } catch (error) {
+        alert("เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Google Sheets");
+      }
+    }
 
-  // หมายเหตุ: ฟังก์ชันแก้ไขและลบถูกปิดใช้งานไว้ เนื่องจากยังไม่ได้เขียนเชื่อมกับ Google Sheet (API ของคุณยังไม่มี doPut/doDelete)
-  function deleteSelected() {
-    alert("ฟังก์ชันลบยังไม่รองรับการใช้งานกับ Google Sheet");
-  }
-</script>
+    async function saveToGoogleSheet(doc) {
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify(doc),
+          headers: { "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        alert("ไม่สามารถบันทึกข้อมูลได้");
+      }
+    }
+
+    async function addDocument() {
+      const name = document.getElementById('docName').value.trim();
+      const status = document.getElementById('docStatus').value;
+      const date = document.getElementById('docDate').value;
+
+      if (!name || !date) {
+        alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
+        return;
+      }
+
+      const isDuplicate = documents.some(doc => doc.name === name);
+      const newDoc = { name, status, date, isDuplicate };
+
+      await saveToGoogleSheet(newDoc);
+      clearInputs();
+      document.getElementById('docName').focus();
+      await fetchDocumentsFromSheet();
+    }
+
+    function clearInputs() {
+      document.getElementById('docName').value = '';
+      document.getElementById('docDate').value = '';
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const table = document.getElementById('docTable');
+      table.innerHTML = '';
+
+      const filtered = documents.map((doc, index) => ({ ...doc, index }))
+        .filter(doc =>
+          doc.name.toLowerCase().includes(search) ||
+          doc.status.includes(search)
+        );
+
+      if (filtered.length === 0) {
+        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(doc => {
+        const row = document.createElement('tr');
+        if (doc.isDuplicate) row.classList.add('duplicate-row');
+
+        row.innerHTML = `
+          <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
+          <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
+          <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
+          <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
+          <td>
+            <div class="action-container">
+              <button class="action-btn" disabled>✏️</button>
+              <button class="action-btn" disabled>🗑️</button>
+            </div>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    function toggleAll(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.rowCheckbox');
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
+    function downloadCSV() {
+      if (documents.length === 0) {
+        alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
+        return;
+      }
+
+      const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
+      const rows = documents.map(doc => [doc.name, doc.status, doc.date]);
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += headers.join(",") + "\n";
+      rows.forEach(row => {
+        csvContent += row.map(item => `"${item}"`).join(",") + "\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "รายการเอกสาร.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function deleteSelected() {
+      alert("ฟังก์ชันลบยังไม่เชื่อมกับ Google Sheet ในเวอร์ชันนี้");
+    }
+  </script>
 
 </body>
 </html>
