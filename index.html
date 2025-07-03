@@ -6,13 +6,80 @@
   <title>ระบบรับเอกสาร RFA & RFI จากปากช่อง</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* (สไตล์คงเดิม ไม่เปลี่ยนแปลงเพื่อความชัดเจน) */
+    body {
+      font-family: 'Sarabun', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+    h2 {
+      text-align: center;
+      color: #2E7D32;
+      margin-bottom: 30px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    input[type="text"],
+    input[type="date"],
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    .btn-primary {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #43A047;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-primary:hover {
+      background-color: #388E3C;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    th {
+      background-color: #e8f5e9;
+      color: #2E7D32;
+    }
+    .loading {
+      text-align: center;
+      color: #888;
+      margin: 20px 0;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2 style="color: #2E7D32;">ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
-    <!-- ฟอร์มคงเดิม -->
+    <h2>ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
     <div class="form-group">
       <label for="docName">ชื่อเอกสาร</label>
       <input type="text" id="docName" placeholder="เช่น RFA-000001" autofocus>
@@ -46,13 +113,12 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbynxg9466QFVy212lHQTYMnKzr7Hz67lgp_mw4Vrh74jV1zwZaHFts8QMWkeCuScqZ_/exec';
+    const SCRIPT_URL = 'https://corsproxy.io/?https://script.google.com/macros/s/AKfycbynxg9466QFVy212lHQTYMnKzr7Hz67lgp_mw4Vrh74jV1zwZaHFts8QMWkeCuScqZ_/exec';
     let documents = [];
 
     function showLoading() {
       document.getElementById('loading').style.display = 'block';
     }
-
     function hideLoading() {
       document.getElementById('loading').style.display = 'none';
     }
@@ -83,7 +149,7 @@
     async function loadDocuments() {
       try {
         const res = await callApi();
-        documents = res;
+        documents = res.data || [];
         const table = document.getElementById('docTable');
         table.innerHTML = '';
         documents.forEach(doc => {
