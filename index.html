@@ -112,237 +112,147 @@
   </table>
 
   <script>
-    const STORAGE_KEY = 'documentReturnData';
-    let documents = [];
+  const API_URL = "https://script.google.com/macros/s/AKfycbwEsJF7FY9ewUYA8n90ePatEFuNbtkN007teGvms0y4yuYddGb_cwdb4xVpsQeuTlqiiw/exec";
+  let documents = [];
 
-    function updateSelectColor(select) {
-      const value = select.value;
-      select.className = '';
-      select.classList.add('status-display', `status-${value}`);
-    }
+  function updateSelectColor(select) {
+    const value = select.value;
+    select.className = '';
+    select.classList.add('status-display', `status-${value}`);
+  }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const statusSelect = document.getElementById('docStatus');
-      updateSelectColor(statusSelect);
-      statusSelect.addEventListener('change', function () {
-        updateSelectColor(this);
-      });
-
-      document.getElementById("docName").addEventListener("keypress", function (e) {
-        if (e.key === "Enter") addDocument();
-      });
-      document.getElementById("docDate").addEventListener("keypress", function (e) {
-        if (e.key === "Enter") addDocument();
-      });
-
-      loadFromStorage();
-      renderTable();
+  document.addEventListener('DOMContentLoaded', async () => {
+    const statusSelect = document.getElementById('docStatus');
+    updateSelectColor(statusSelect);
+    statusSelect.addEventListener('change', function () {
+      updateSelectColor(this);
     });
 
-    function loadFromStorage() {
-      const data = localStorage.getItem(STORAGE_KEY);
-      documents = data ? JSON.parse(data) : [];
-    }
+    document.getElementById("docName").addEventListener("keypress", function (e) {
+      if (e.key === "Enter") addDocument();
+    });
+    document.getElementById("docDate").addEventListener("keypress", function (e) {
+      if (e.key === "Enter") addDocument();
+    });
 
-    function saveToStorage() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
-    }
+    await fetchDocumentsFromSheet();
+  });
 
-    function addDocument() {
-      const name = document.getElementById('docName').value.trim();
-      const status = document.getElementById('docStatus').value;
-      const date = document.getElementById('docDate').value;
-
-      if (!name || !date) {
-        alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
-        return;
-      }
-
-      const isDuplicate = documents.some(doc => doc.name === name);
-      documents.unshift({ name, status, date, isDuplicate });
-      saveToStorage();
-      clearInputs();
-      document.getElementById('docName').focus();
+  async function fetchDocumentsFromSheet() {
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+      documents = data.reverse().map(doc => ({
+        ...doc,
+        isDuplicate: false
+      }));
       renderTable();
+    } catch (error) {
+      alert("เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Google Sheets");
     }
+  }
 
-    function clearInputs() {
-      document.getElementById('docName').value = '';
-      document.getElementById('docDate').value = '';
-    }
-
-    function renderTable() {
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const table = document.getElementById('docTable');
-      table.innerHTML = '';
-
-      const filtered = documents.map((doc, index) => ({ ...doc, index }))
-        .filter(doc =>
-          doc.name.toLowerCase().includes(search) ||
-          doc.status.includes(search)
-        )
-        .sort((a, b) => {
-          if (a.isDuplicate && !b.isDuplicate) return -1;
-          if (!a.isDuplicate && b.isDuplicate) return 1;
-          return new Date(b.date) - new Date(a.date);
-        });
-
-      if (filtered.length === 0) {
-        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
-        return;
-      }
-
-      filtered.forEach(doc => {
-        const row = document.createElement('tr');
-        if (doc.isDuplicate) row.classList.add('duplicate-row');
-
-        row.innerHTML = `
-          <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
-          <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
-          <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
-          <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
-          <td>
-            <div class="action-container">
-              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
-              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️</button>
-            </div>
-          </td>
-        `;
-        table.appendChild(row);
+  async function saveToGoogleSheet(doc) {
+    try {
+      await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(doc),
+        headers: { "Content-Type": "application/json" }
       });
+    } catch (error) {
+      alert("ไม่สามารถบันทึกข้อมูลได้");
+    }
+  }
+
+  async function addDocument() {
+    const name = document.getElementById('docName').value.trim();
+    const status = document.getElementById('docStatus').value;
+    const date = document.getElementById('docDate').value;
+
+    if (!name || !date) {
+      alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
+      return;
     }
 
-    function deleteDocument(index) {
-      if (confirm("ต้องการลบเอกสารนี้หรือไม่?")) {
-        documents.splice(index, 1);
-        saveToStorage();
-        renderTable();
-      }
+    const isDuplicate = documents.some(doc => doc.name === name);
+    const newDoc = { name, status, date, isDuplicate };
+
+    await saveToGoogleSheet(newDoc);
+    clearInputs();
+    document.getElementById('docName').focus();
+    await fetchDocumentsFromSheet();
+  }
+
+  function clearInputs() {
+    document.getElementById('docName').value = '';
+    document.getElementById('docDate').value = '';
+  }
+
+  function renderTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const table = document.getElementById('docTable');
+    table.innerHTML = '';
+
+    const filtered = documents.map((doc, index) => ({ ...doc, index }))
+      .filter(doc =>
+        doc.name.toLowerCase().includes(search) ||
+        doc.status.includes(search)
+      );
+
+    if (filtered.length === 0) {
+      table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
+      return;
     }
 
-    function editDocument(index, btn) {
-      const row = btn.closest('tr');
-      const doc = documents[index];
+    filtered.forEach(doc => {
+      const row = document.createElement('tr');
+      if (doc.isDuplicate) row.classList.add('duplicate-row');
 
-      row.classList.add('edit-mode');
       row.innerHTML = `
-        <td></td>
-        <td><input value="${doc.name}" id="editName${index}"></td>
-        <td>
-          <select id="editStatus${index}" onchange="updateSelectColor(this)">
-            <option ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
-            <option ${doc.status === "อนุมัติตามบันทึก" ? "selected" : ""}>อนุมัติตามบันทึก</option>
-            <option ${doc.status === "แก้ไขเพิ่มเติม" ? "selected" : ""}>แก้ไขเพิ่มเติม</option>
-            <option ${doc.status === "ไม่อนุมัติ" ? "selected" : ""}>ไม่อนุมัติ</option>
-            <option ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
-          </select>
-        </td>
-        <td><input type="date" value="${doc.date}" id="editDate${index}"></td>
+        <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
+        <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
+        <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
+        <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
         <td>
           <div class="action-container">
-            <button class="action-btn" onclick="saveEdit(${index})">💾</button>
-            <button class="action-btn" onclick="renderTable()">❌</button>
+            <button class="action-btn" disabled>✏️</button>
+            <button class="action-btn" disabled>🗑️</button>
           </div>
         </td>
       `;
+      table.appendChild(row);
+    });
+  }
 
-      setTimeout(() => {
-        const editSelect = document.getElementById(`editStatus${index}`);
-        updateSelectColor(editSelect);
-      }, 0);
+  function downloadCSV() {
+    if (documents.length === 0) {
+      alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
+      return;
     }
 
-    function saveEdit(index) {
-      const name = document.getElementById(`editName${index}`).value.trim();
-      const status = document.getElementById(`editStatus${index}`).value;
-      const date = document.getElementById(`editDate${index}`).value;
+    const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
+    const rows = documents.map(doc => [doc.name, doc.status, doc.date]);
 
-      if (!name || !date) {
-        alert("กรุณากรอกข้อมูลให้ครบ");
-        return;
-      }
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    csvContent += headers.join(",") + "\n";
+    rows.forEach(row => {
+      csvContent += row.map(item => `"${item}"`).join(",") + "\n";
+    });
 
-      const isDuplicate = documents.some((doc, i) => doc.name === name && i !== index);
-      if (isDuplicate) {
-        alert("มีชื่อเอกสารนี้อยู่แล้ว");
-        return;
-      }
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "รายการเอกสาร.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
-      documents[index] = { name, status, date, isDuplicate: false };
-      saveToStorage();
-      renderTable();
-    }
-
-    function downloadCSV() {
-      if (documents.length === 0) {
-        alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
-        return;
-      }
-
-      const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
-      const rows = documents.filter(doc => !doc.isDuplicate)
-        .map(doc => [doc.name, doc.status, doc.date]);
-
-      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-      csvContent += headers.join(",") + "\n";
-      rows.forEach(row => {
-        csvContent += row.map(item => `"${item}"`).join(",") + "\n";
-      });
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "รายการเอกสาร.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    function importCSV(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const lines = e.target.result.split("\n");
-        let count = 0;
-        for (let line of lines) {
-          if (!line.trim()) continue;
-          let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
-          if (!name || !status || !date) continue;
-          const isDuplicate = documents.some(doc => doc.name === name);
-          documents.unshift({ name, status, date, isDuplicate });
-          count++;
-        }
-
-        saveToStorage();
-        renderTable();
-        alert(`นำเข้า ${count} รายการสำเร็จ`);
-        event.target.value = '';
-      };
-      reader.readAsText(file);
-    }
-
-    function deleteSelected() {
-      const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
-      if (checkboxes.length === 0) {
-        alert("กรุณาเลือกรายการที่จะลบ");
-        return;
-      }
-
-      if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
-
-      const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
-      documents = documents.filter((_, i) => !indexesToDelete.includes(i));
-      saveToStorage();
-      renderTable();
-    }
-
-    function toggleAll(masterCheckbox) {
-      const checkboxes = document.querySelectorAll('.rowCheckbox');
-      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
-    }
-  </script>
+  // หมายเหตุ: ฟังก์ชันแก้ไขและลบถูกปิดใช้งานไว้ เนื่องจากยังไม่ได้เขียนเชื่อมกับ Google Sheet (API ของคุณยังไม่มี doPut/doDelete)
+  function deleteSelected() {
+    alert("ฟังก์ชันลบยังไม่รองรับการใช้งานกับ Google Sheet");
+  }
+</script>
 
 </body>
 </html>
