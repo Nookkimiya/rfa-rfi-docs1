@@ -194,6 +194,19 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    .offline-warning {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff9800;
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
@@ -245,6 +258,10 @@
     <tbody id="docTable"></tbody>
   </table>
 
+  <div id="offlineAlert" class="offline-warning" style="display: none;">
+    ⚠ กำลังทำงานในโหมดออฟไลน์ ข้อมูลจะถูกบันทึกในเครื่องชั่วคราว
+  </div>
+
   <script>
     const STORAGE_KEY = 'documentReturnData';
     const API_URL = 'https://script.google.com/macros/s/AKfycbxi9HgsyY26hyC7i7l4TmU0C01NYWJGgjpI9On-SvxQZcHML_hlSRaOyWhBHm--VfNO/exec';
@@ -263,28 +280,29 @@
       showLoading(true);
       try {
         // พยายามโหลดจาก Google Sheets ก่อน
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
+        const response = await fetch(`${API_URL}?action=getAll`);
         
-        // ถ้าได้ข้อมูลจาก Sheet ให้ใช้ข้อมูลนั้น
-        if (Array.isArray(data)) {
-          documents = data.map(doc => ({
-            ...doc,
-            isDuplicate: false
-          }));
-          isOnline = true;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
-        } else {
-          // ถ้าไม่ได้ข้อมูลจาก Sheet ให้โหลดจาก localStorage
-          throw new Error('Invalid data format from Sheet');
-        }
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        documents = data.map(doc => ({
+          ...doc,
+          isDuplicate: false
+        }));
+        
+        isOnline = true;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+        document.getElementById('offlineAlert').style.display = 'none';
+        
       } catch (error) {
         console.error('Error loading from Sheet:', error);
         isOnline = false;
+        document.getElementById('offlineAlert').style.display = 'block';
+        
         // โหลดจาก localStorage
-        const data = localStorage.getItem(STORAGE_KEY);
-        documents = data ? JSON.parse(data) : [];
+        const localData = localStorage.getItem(STORAGE_KEY);
+        documents = localData ? JSON.parse(localData) : [];
+        
       } finally {
         showLoading(false);
         renderTable();
@@ -295,29 +313,33 @@
     async function saveData(action, data = {}) {
       showLoading(true);
       try {
-        const response = await fetch(API_URL, {
+        // สร้าง FormData object
+        const formData = new FormData();
+        formData.append('data', JSON.stringify({ action, ...data }));
+        
+        // ส่ง request ด้วย fetch และ no-cors mode
+        await fetch(API_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action, ...data })
+          body: formData,
+          mode: 'no-cors'
         });
         
-        if (!response.ok) throw new Error('Network response was not ok');
-        const result = await response.json();
+        isOnline = true;
+        document.getElementById('offlineAlert').style.display = 'none';
+        return { success: true };
         
-        if (result.success !== false) {
-          isOnline = true;
-          return result;
-        } else {
-          throw new Error(result.error || 'Unknown error');
-        }
       } catch (error) {
         console.error('Error saving to Sheet:', error);
         isOnline = false;
+        document.getElementById('offlineAlert').style.display = 'block';
+        
         // บันทึกลง localStorage แทน
         localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
-        return { success: false, error: error.message };
+        
+        return { 
+          success: false, 
+          error: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ ข้อมูลจะถูกบันทึกในเครื่องชั่วคราว'
+        };
       } finally {
         showLoading(false);
       }
@@ -366,7 +388,7 @@
         // ถ้าไม่สำเร็จ ให้ลบข้อมูลชั่วคราวออก
         documents.shift();
         renderTable();
-        alert("ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ ข้อมูลจะถูกเก็บไว้ในเครื่องจนกว่าจะเชื่อมต่อได้");
+        alert(result.error);
       }
     }
 
@@ -386,7 +408,7 @@
         // ถ้าไม่สำเร็จ ให้คืนข้อมูล
         documents.splice(index, 0, docToDelete);
         renderTable();
-        alert("ไม่สามารถลบเอกสารจาก Google Sheets ได้ ข้อมูลจะถูกเก็บไว้ในเครื่องจนกว่าจะเชื่อมต่อได้");
+        alert(result.error);
       }
     }
 
@@ -426,11 +448,10 @@
         // ถ้าไม่สำเร็จ ให้คืนค่าเดิม
         documents[index] = oldDoc;
         renderTable();
-        alert("ไม่สามารถอัปเดตเอกสารใน Google Sheets ได้ ข้อมูลจะถูกเก็บไว้ในเครื่องจนกว่าจะเชื่อมต่อได้");
+        alert(result.error);
       }
     }
 
-    // ฟังก์ชันอื่นๆ ที่เหลือเหมือนเดิม
     function clearInputs() {
       document.getElementById('docName').value = '';
       document.getElementById('docDate').value = '';
@@ -475,15 +496,6 @@
         `;
         table.appendChild(row);
       });
-
-      // แสดงสถานะออนไลน์/ออฟไลน์
-      const statusRow = document.createElement('tr');
-      statusRow.innerHTML = `
-        <td colspan="5" style="text-align:center; color:${isOnline ? '#4caf50' : '#ff9800'}">
-          ${isOnline ? '✓ เชื่อมต่อกับ Google Sheets แล้ว' : '⚠ ทำงานในโหมดออฟไลน์ ข้อมูลจะถูกบันทึกในเครื่อง'}
-        </td>
-      `;
-      table.appendChild(statusRow);
     }
 
     function editDocument(index, btn) {
@@ -551,18 +563,26 @@
       reader.onload = function (e) {
         const lines = e.target.result.split("\n");
         let count = 0;
+        let newDocuments = [];
+        
         for (let line of lines) {
           if (!line.trim()) continue;
           let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
           if (!name || !status || !date) continue;
-          const isDuplicate = documents.some(doc => doc.name === name);
-          documents.unshift({ name, status, date, isDuplicate });
+          
+          const isDuplicate = documents.some(doc => doc.name === name) || 
+                             newDocuments.some(doc => doc.name === name);
+          
+          newDocuments.push({ name, status, date, isDuplicate });
           count++;
         }
 
+        // เพิ่มเอกสารใหม่
+        documents.unshift(...newDocuments);
+        renderTable();
+        
         // บันทึกข้อมูล
         saveData('import', { count }).then(() => {
-          renderTable();
           alert(`นำเข้า ${count} รายการสำเร็จ`);
           event.target.value = '';
         });
@@ -618,6 +638,11 @@
 
       // โหลดข้อมูล
       loadData();
+      
+      // ตรวจสอบสถานะออนไลน์ทุก 30 วินาที
+      setInterval(() => {
+        if (!isOnline) loadData();
+      }, 30000);
     });
   </script>
 
