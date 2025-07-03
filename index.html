@@ -180,6 +180,20 @@
       justify-content: center;
       gap: 6px;
     }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -202,7 +216,7 @@
     <label for="docDate">วันที่รับคืน</label>
     <input type="date" id="docDate">
 
-    <button onclick="addDocument()">เพิ่มเอกสาร</button>
+    <button onclick="addDocument()" id="addBtn">เพิ่มเอกสาร</button>
   </div>
 
   <div class="search">
@@ -233,42 +247,96 @@
 
   <script>
     const STORAGE_KEY = 'documentReturnData';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxi9HgsyY26hyC7i7l4TmU0C01NYWJGgjpI9On-SvxQZcHML_hlSRaOyWhBHm--VfNO/exec';
     let documents = [];
+    let isOnline = true;
 
+    // ฟังก์ชันอัพเดตสีของ select
     function updateSelectColor(select) {
       const value = select.value;
       select.className = '';
       select.classList.add('status-display', `status-${value}`);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const statusSelect = document.getElementById('docStatus');
-      updateSelectColor(statusSelect);
-      statusSelect.addEventListener('change', function () {
-        updateSelectColor(this);
-      });
-
-      document.getElementById("docName").addEventListener("keypress", function (e) {
-        if (e.key === "Enter") addDocument();
-      });
-      document.getElementById("docDate").addEventListener("keypress", function (e) {
-        if (e.key === "Enter") addDocument();
-      });
-
-      loadFromStorage();
-      renderTable();
-    });
-
-    function loadFromStorage() {
-      const data = localStorage.getItem(STORAGE_KEY);
-      documents = data ? JSON.parse(data) : [];
+    // ฟังก์ชันโหลดข้อมูล
+    async function loadData() {
+      showLoading(true);
+      try {
+        // พยายามโหลดจาก Google Sheets ก่อน
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        
+        // ถ้าได้ข้อมูลจาก Sheet ให้ใช้ข้อมูลนั้น
+        if (Array.isArray(data)) {
+          documents = data.map(doc => ({
+            ...doc,
+            isDuplicate: false
+          }));
+          isOnline = true;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+        } else {
+          // ถ้าไม่ได้ข้อมูลจาก Sheet ให้โหลดจาก localStorage
+          throw new Error('Invalid data format from Sheet');
+        }
+      } catch (error) {
+        console.error('Error loading from Sheet:', error);
+        isOnline = false;
+        // โหลดจาก localStorage
+        const data = localStorage.getItem(STORAGE_KEY);
+        documents = data ? JSON.parse(data) : [];
+      } finally {
+        showLoading(false);
+        renderTable();
+      }
     }
 
-    function saveToStorage() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+    // ฟังก์ชันบันทึกข้อมูล
+    async function saveData(action, data = {}) {
+      showLoading(true);
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action, ...data })
+        });
+        
+        if (!response.ok) throw new Error('Network response was not ok');
+        const result = await response.json();
+        
+        if (result.success !== false) {
+          isOnline = true;
+          return result;
+        } else {
+          throw new Error(result.error || 'Unknown error');
+        }
+      } catch (error) {
+        console.error('Error saving to Sheet:', error);
+        isOnline = false;
+        // บันทึกลง localStorage แทน
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
+        return { success: false, error: error.message };
+      } finally {
+        showLoading(false);
+      }
     }
 
-    function addDocument() {
+    // ฟังก์ชันแสดงสถานะ loading
+    function showLoading(show) {
+      const addBtn = document.getElementById('addBtn');
+      if (show) {
+        addBtn.disabled = true;
+        addBtn.innerHTML = '<span class="loading"></span> กำลังประมวลผล...';
+      } else {
+        addBtn.disabled = false;
+        addBtn.textContent = 'เพิ่มเอกสาร';
+      }
+    }
+
+    // ฟังก์ชันเพิ่มเอกสาร
+    async function addDocument() {
       const name = document.getElementById('docName').value.trim();
       const status = document.getElementById('docStatus').value;
       const date = document.getElementById('docDate').value;
@@ -278,14 +346,91 @@
         return;
       }
 
+      // ตรวจสอบข้อมูลซ้ำ
       const isDuplicate = documents.some(doc => doc.name === name);
-      documents.unshift({ name, status, date, isDuplicate });
-      saveToStorage();
-      clearInputs();
-      document.getElementById('docName').focus();
+      if (isDuplicate) {
+        alert("มีชื่อเอกสารนี้อยู่แล้ว");
+        return;
+      }
+
+      // เพิ่มข้อมูลชั่วคราว
+      const newDoc = { name, status, date, isDuplicate: false };
+      documents.unshift(newDoc);
       renderTable();
+      clearInputs();
+
+      // บันทึกลง Google Sheets
+      const result = await saveData('add', newDoc);
+      
+      if (!result.success) {
+        // ถ้าไม่สำเร็จ ให้ลบข้อมูลชั่วคราวออก
+        documents.shift();
+        renderTable();
+        alert("ไม่สามารถเชื่อมต่อกับ Google Sheets ได้ ข้อมูลจะถูกเก็บไว้ในเครื่องจนกว่าจะเชื่อมต่อได้");
+      }
     }
 
+    // ฟังก์ชันลบเอกสาร
+    async function deleteDocument(index) {
+      if (!confirm("ต้องการลบเอกสารนี้หรือไม่?")) return;
+
+      const docToDelete = documents[index];
+      // ลบชั่วคราว
+      documents.splice(index, 1);
+      renderTable();
+      
+      // ลบออกจาก Google Sheets
+      const result = await saveData('delete', { name: docToDelete.name });
+      
+      if (!result.success) {
+        // ถ้าไม่สำเร็จ ให้คืนข้อมูล
+        documents.splice(index, 0, docToDelete);
+        renderTable();
+        alert("ไม่สามารถลบเอกสารจาก Google Sheets ได้ ข้อมูลจะถูกเก็บไว้ในเครื่องจนกว่าจะเชื่อมต่อได้");
+      }
+    }
+
+    // ฟังก์ชันแก้ไขเอกสาร
+    async function saveEdit(index) {
+      const name = document.getElementById(`editName${index}`).value.trim();
+      const status = document.getElementById(`editStatus${index}`).value;
+      const date = document.getElementById(`editDate${index}`).value;
+
+      if (!name || !date) {
+        alert("กรุณากรอกข้อมูลให้ครบ");
+        return;
+      }
+
+      const oldDoc = documents[index];
+      
+      // ตรวจสอบข้อมูลซ้ำ
+      const isDuplicate = documents.some((doc, i) => i !== index && doc.name === name);
+      if (isDuplicate) {
+        alert("มีชื่อเอกสารนี้อยู่แล้ว");
+        return;
+      }
+
+      // อัปเดตชั่วคราว
+      documents[index] = { name, status, date, isDuplicate: false };
+      renderTable();
+      
+      // อัปเดตใน Google Sheets
+      const result = await saveData('update', {
+        oldName: oldDoc.name,
+        name,
+        status,
+        date
+      });
+      
+      if (!result.success) {
+        // ถ้าไม่สำเร็จ ให้คืนค่าเดิม
+        documents[index] = oldDoc;
+        renderTable();
+        alert("ไม่สามารถอัปเดตเอกสารใน Google Sheets ได้ ข้อมูลจะถูกเก็บไว้ในเครื่องจนกว่าจะเชื่อมต่อได้");
+      }
+    }
+
+    // ฟังก์ชันอื่นๆ ที่เหลือเหมือนเดิม
     function clearInputs() {
       document.getElementById('docName').value = '';
       document.getElementById('docDate').value = '';
@@ -330,14 +475,15 @@
         `;
         table.appendChild(row);
       });
-    }
 
-    function deleteDocument(index) {
-      if (confirm("ต้องการลบเอกสารนี้หรือไม่?")) {
-        documents.splice(index, 1);
-        saveToStorage();
-        renderTable();
-      }
+      // แสดงสถานะออนไลน์/ออฟไลน์
+      const statusRow = document.createElement('tr');
+      statusRow.innerHTML = `
+        <td colspan="5" style="text-align:center; color:${isOnline ? '#4caf50' : '#ff9800'}">
+          ${isOnline ? '✓ เชื่อมต่อกับ Google Sheets แล้ว' : '⚠ ทำงานในโหมดออฟไลน์ ข้อมูลจะถูกบันทึกในเครื่อง'}
+        </td>
+      `;
+      table.appendChild(statusRow);
     }
 
     function editDocument(index, btn) {
@@ -370,27 +516,6 @@
         const editSelect = document.getElementById(`editStatus${index}`);
         updateSelectColor(editSelect);
       }, 0);
-    }
-
-    function saveEdit(index) {
-      const name = document.getElementById(`editName${index}`).value.trim();
-      const status = document.getElementById(`editStatus${index}`).value;
-      const date = document.getElementById(`editDate${index}`).value;
-
-      if (!name || !date) {
-        alert("กรุณากรอกข้อมูลให้ครบ");
-        return;
-      }
-
-      const isDuplicate = documents.some((doc, i) => doc.name === name && i !== index);
-      if (isDuplicate) {
-        alert("มีชื่อเอกสารนี้อยู่แล้ว");
-        return;
-      }
-
-      documents[index] = { name, status, date, isDuplicate: false };
-      saveToStorage();
-      renderTable();
     }
 
     function downloadCSV() {
@@ -435,10 +560,12 @@
           count++;
         }
 
-        saveToStorage();
-        renderTable();
-        alert(`นำเข้า ${count} รายการสำเร็จ`);
-        event.target.value = '';
+        // บันทึกข้อมูล
+        saveData('import', { count }).then(() => {
+          renderTable();
+          alert(`นำเข้า ${count} รายการสำเร็จ`);
+          event.target.value = '';
+        });
       };
       reader.readAsText(file);
     }
@@ -453,15 +580,45 @@
       if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
 
       const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+      const docsToDelete = indexesToDelete.map(i => documents[i].name);
+      
+      // ลบชั่วคราว
       documents = documents.filter((_, i) => !indexesToDelete.includes(i));
-      saveToStorage();
       renderTable();
+      
+      // ลบออกจาก Google Sheets
+      saveData('deleteMultiple', { names: docsToDelete }).then(result => {
+        if (!result.success) {
+          // ถ้าไม่สำเร็จ ให้โหลดข้อมูลใหม่
+          loadData();
+          alert("ไม่สามารถลบเอกสารบางส่วนจาก Google Sheets ได้ กำลังโหลดข้อมูลใหม่");
+        }
+      });
     }
 
     function toggleAll(masterCheckbox) {
       const checkboxes = document.querySelectorAll('.rowCheckbox');
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
+
+    // เมื่อโหลดหน้าเว็บ
+    document.addEventListener('DOMContentLoaded', () => {
+      const statusSelect = document.getElementById('docStatus');
+      updateSelectColor(statusSelect);
+      statusSelect.addEventListener('change', function () {
+        updateSelectColor(this);
+      });
+
+      document.getElementById("docName").addEventListener("keypress", function (e) {
+        if (e.key === "Enter") addDocument();
+      });
+      document.getElementById("docDate").addEventListener("keypress", function (e) {
+        if (e.key === "Enter") addDocument();
+      });
+
+      // โหลดข้อมูล
+      loadData();
+    });
   </script>
 
 </body>
