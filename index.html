@@ -264,7 +264,7 @@
 
   <script>
     const STORAGE_KEY = 'documentReturnData';
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwUXkwLvv5PThsGX115toj6bBipPv3hhh6v3RE38sUvPWy5DL_qbbW0qtL1pwiI4H9Z/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxi9HgsyY26hyC7i7l4TmU0C01NYWJGgjpI9On-SvxQZcHML_hlSRaOyWhBHm--VfNO/exec';
     let documents = [];
     let isOnline = true;
 
@@ -313,20 +313,20 @@
     async function saveData(action, data = {}) {
       showLoading(true);
       try {
-        const response = await fetch(API_URL, {
+        // สร้าง FormData object
+        const formData = new FormData();
+        formData.append('data', JSON.stringify({ action, ...data }));
+        
+        // ส่ง request ด้วย fetch และ no-cors mode
+        await fetch(API_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ action, ...data })
+          body: formData,
+          mode: 'no-cors'
         });
         
-        if (!response.ok) throw new Error('Network response was not ok');
-        
-        const result = await response.json();
         isOnline = true;
         document.getElementById('offlineAlert').style.display = 'none';
-        return result;
+        return { success: true };
         
       } catch (error) {
         console.error('Error saving to Sheet:', error);
@@ -645,5 +645,6 @@
       }, 30000);
     });
   </script>
+
 </body>
 </html>
