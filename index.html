@@ -36,9 +36,7 @@
       margin-bottom: 20px;
     }
 
-    .form-card label {
-      font-weight: bold;
-    }
+    .form-card label { font-weight: bold; }
 
     input, select, button {
       font-size: 14px;
@@ -99,27 +97,13 @@
       text-align: center;
     }
 
-    .btn-csv {
-      background-color: #2196f3;
-      color: white;
-    }
+    .btn-csv { background-color: #2196f3; color: white; }
+    .btn-csv:hover { background-color: #1976d2; }
 
-    .btn-csv:hover {
-      background-color: #1976d2;
-    }
+    .btn-delete { background-color: #e53935; color: white; }
+    .btn-delete:hover { background-color: #c62828; }
 
-    .btn-delete {
-      background-color: #e53935;
-      color: white;
-    }
-
-    .btn-delete:hover {
-      background-color: #c62828;
-    }
-
-    .btn-csv input[type="file"] {
-      display: none;
-    }
+    .btn-csv input[type="file"] { display: none; }
 
     table {
       width: 100%;
@@ -138,9 +122,7 @@
       border-bottom: 1px solid #333;
     }
 
-    th {
-      background-color: #2e7d32;
-    }
+    th { background-color: #2e7d32; }
 
     .status-display {
       padding: 4px 10px;
@@ -167,13 +149,9 @@
       transition: background-color 0.2s;
     }
 
-    .action-btn:hover {
-      background-color: #555;
-    }
+    .action-btn:hover { background-color: #555; }
 
-    .duplicate-row {
-      background-color: #662222;
-    }
+    .duplicate-row { background-color: #662222; }
 
     .action-container {
       display: flex;
@@ -190,10 +168,7 @@
       border-top-color: #fff;
       animation: spin 1s ease-in-out infinite;
     }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .offline-warning {
       position: fixed;
@@ -265,79 +240,73 @@
   <script>
     const STORAGE_KEY = 'documentReturnData';
     const API_URL = 'https://script.google.com/macros/s/AKfycbxi9HgsyY26hyC7i7l4TmU0C01NYWJGgjpI9On-SvxQZcHML_hlSRaOyWhBHm--VfNO/exec';
+
     let documents = [];
     let isOnline = true;
 
-    // ฟังก์ชันอัพเดตสีของ select
+    // ---------- Utils ----------
+    function normalizeName(x){ return (x ?? '').toString().trim().toLowerCase(); }
+
+    // อัพเดตสีของ select ตามสถานะ
     function updateSelectColor(select) {
       const value = select.value;
       select.className = '';
       select.classList.add('status-display', `status-${value}`);
     }
 
-    // ฟังก์ชันโหลดข้อมูล
+    // ---------- Load / Save ----------
     async function loadData() {
       showLoading(true);
       try {
-        // พยายามโหลดจาก Google Sheets ก่อน
         const response = await fetch(`${API_URL}?action=getAll`);
-        
         if (!response.ok) throw new Error('Network response was not ok');
-        
+
         const data = await response.json();
-        documents = data.map(doc => ({
-          ...doc,
+        documents = (Array.isArray(data) ? data : []).map(d => ({
+          name:   d.name   ?? d.docName     ?? d['ชื่อเอกสาร']   ?? '',
+          status: d.status ?? d.docStatus   ?? d['สถานะ']        ?? '',
+          date:   d.date   ?? d.docDate     ?? d['วันที่รับคืน']  ?? '',
           isDuplicate: false
         }));
-        
+
         isOnline = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
         document.getElementById('offlineAlert').style.display = 'none';
-        
       } catch (error) {
         console.error('Error loading from Sheet:', error);
         isOnline = false;
         document.getElementById('offlineAlert').style.display = 'block';
-        
-        // โหลดจาก localStorage
+
         const localData = localStorage.getItem(STORAGE_KEY);
         documents = localData ? JSON.parse(localData) : [];
-        
       } finally {
         showLoading(false);
         renderTable();
       }
     }
 
-    // ฟังก์ชันบันทึกข้อมูล
     async function saveData(action, data = {}) {
       showLoading(true);
       try {
-        // สร้าง FormData object
         const formData = new FormData();
         formData.append('data', JSON.stringify({ action, ...data }));
-        
-        // ส่ง request ด้วย fetch และ no-cors mode
+
         await fetch(API_URL, {
           method: 'POST',
           body: formData,
-          mode: 'no-cors'
+          mode: 'no-cors'   // หมายเหตุ: แบบนี้จะอ่านผลลัพธ์จากเซิร์ฟเวอร์ไม่ได้ (opaque)
         });
-        
+
         isOnline = true;
         document.getElementById('offlineAlert').style.display = 'none';
         return { success: true };
-        
       } catch (error) {
         console.error('Error saving to Sheet:', error);
         isOnline = false;
         document.getElementById('offlineAlert').style.display = 'block';
-        
-        // บันทึกลง localStorage แทน
         localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
-        
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ ข้อมูลจะถูกบันทึกในเครื่องชั่วคราว'
         };
       } finally {
@@ -345,7 +314,7 @@
       }
     }
 
-    // ฟังก์ชันแสดงสถานะ loading
+    // ---------- UI Helpers ----------
     function showLoading(show) {
       const addBtn = document.getElementById('addBtn');
       if (show) {
@@ -357,9 +326,15 @@
       }
     }
 
-    // ฟังก์ชันเพิ่มเอกสาร
+    function clearInputs() {
+      document.getElementById('docName').value = '';
+      document.getElementById('docDate').value = '';
+    }
+
+    // ---------- CRUD ----------
     async function addDocument() {
-      const name = document.getElementById('docName').value.trim();
+      const nameRaw = document.getElementById('docName').value;
+      const name = (nameRaw ?? '').trim();
       const status = document.getElementById('docStatus').value;
       const date = document.getElementById('docDate').value;
 
@@ -368,53 +343,43 @@
         return;
       }
 
-      // ตรวจสอบข้อมูลซ้ำ
-      const isDuplicate = documents.some(doc => doc.name === name);
+      const isDuplicate = documents.some(doc => normalizeName(doc.name) === normalizeName(name));
       if (isDuplicate) {
         alert("มีชื่อเอกสารนี้อยู่แล้ว");
         return;
       }
 
-      // เพิ่มข้อมูลชั่วคราว
       const newDoc = { name, status, date, isDuplicate: false };
       documents.unshift(newDoc);
       renderTable();
       clearInputs();
 
-      // บันทึกลง Google Sheets
       const result = await saveData('add', newDoc);
-      
       if (!result.success) {
-        // ถ้าไม่สำเร็จ ให้ลบข้อมูลชั่วคราวออก
         documents.shift();
         renderTable();
         alert(result.error);
       }
     }
 
-    // ฟังก์ชันลบเอกสาร
     async function deleteDocument(index) {
       if (!confirm("ต้องการลบเอกสารนี้หรือไม่?")) return;
 
       const docToDelete = documents[index];
-      // ลบชั่วคราว
       documents.splice(index, 1);
       renderTable();
-      
-      // ลบออกจาก Google Sheets
+
       const result = await saveData('delete', { name: docToDelete.name });
-      
       if (!result.success) {
-        // ถ้าไม่สำเร็จ ให้คืนข้อมูล
         documents.splice(index, 0, docToDelete);
         renderTable();
         alert(result.error);
       }
     }
 
-    // ฟังก์ชันแก้ไขเอกสาร
     async function saveEdit(index) {
-      const name = document.getElementById(`editName${index}`).value.trim();
+      const nameRaw = document.getElementById(`editName${index}`).value;
+      const name = (nameRaw ?? '').trim();
       const status = document.getElementById(`editStatus${index}`).value;
       const date = document.getElementById(`editDate${index}`).value;
 
@@ -424,78 +389,22 @@
       }
 
       const oldDoc = documents[index];
-      
-      // ตรวจสอบข้อมูลซ้ำ
-      const isDuplicate = documents.some((doc, i) => i !== index && doc.name === name);
+
+      const isDuplicate = documents.some((doc, i) => i !== index && normalizeName(doc.name) === normalizeName(name));
       if (isDuplicate) {
         alert("มีชื่อเอกสารนี้อยู่แล้ว");
         return;
       }
 
-      // อัปเดตชั่วคราว
       documents[index] = { name, status, date, isDuplicate: false };
       renderTable();
-      
-      // อัปเดตใน Google Sheets
-      const result = await saveData('update', {
-        oldName: oldDoc.name,
-        name,
-        status,
-        date
-      });
-      
+
+      const result = await saveData('update', { oldName: oldDoc.name, name, status, date });
       if (!result.success) {
-        // ถ้าไม่สำเร็จ ให้คืนค่าเดิม
         documents[index] = oldDoc;
         renderTable();
         alert(result.error);
       }
-    }
-
-    function clearInputs() {
-      document.getElementById('docName').value = '';
-      document.getElementById('docDate').value = '';
-    }
-
-    function renderTable() {
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const table = document.getElementById('docTable');
-      table.innerHTML = '';
-
-      const filtered = documents.map((doc, index) => ({ ...doc, index }))
-        .filter(doc =>
-          doc.name.toLowerCase().includes(search) ||
-          doc.status.includes(search)
-        )
-        .sort((a, b) => {
-          if (a.isDuplicate && !b.isDuplicate) return -1;
-          if (!a.isDuplicate && b.isDuplicate) return 1;
-          return new Date(b.date) - new Date(a.date);
-        });
-
-      if (filtered.length === 0) {
-        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
-        return;
-      }
-
-      filtered.forEach(doc => {
-        const row = document.createElement('tr');
-        if (doc.isDuplicate) row.classList.add('duplicate-row');
-
-        row.innerHTML = `
-          <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
-          <td><span class="docName">${doc.name.replace(/['"]+/g, '')}</span></td>
-          <td><span class="status-display status-${doc.status}">${doc.status.replace(/['"]+/g, '')}</span></td>
-          <td><span class="docDate">${doc.date.replace(/['"]+/g, '')}</span></td>
-          <td>
-            <div class="action-container">
-              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
-              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️</button>
-            </div>
-          </td>
-        `;
-        table.appendChild(row);
-      });
     }
 
     function editDocument(index, btn) {
@@ -505,7 +414,7 @@
       row.classList.add('edit-mode');
       row.innerHTML = `
         <td></td>
-        <td><input value="${doc.name}" id="editName${index}"></td>
+        <td><input value="${(doc.name ?? '').toString().replace(/"/g,'&quot;')}" id="editName${index}"></td>
         <td>
           <select id="editStatus${index}" onchange="updateSelectColor(this)">
             <option ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
@@ -515,7 +424,7 @@
             <option ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
           </select>
         </td>
-        <td><input type="date" value="${doc.date}" id="editDate${index}"></td>
+        <td><input type="date" value="${(doc.date ?? '').toString()}" id="editDate${index}"></td>
         <td>
           <div class="action-container">
             <button class="action-btn" onclick="saveEdit(${index})">💾</button>
@@ -530,6 +439,51 @@
       }, 0);
     }
 
+    // ---------- Table / Search ----------
+    function renderTable() {
+      const search = (document.getElementById('searchInput').value || '').toLowerCase();
+      const table = document.getElementById('docTable');
+      table.innerHTML = '';
+
+      const filtered = documents
+        .map((doc, index) => ({ ...doc, index }))
+        .filter(doc => {
+          const nameStr   = (doc?.name ?? '').toString().toLowerCase();
+          const statusStr = (doc?.status ?? '').toString().toLowerCase();
+          return nameStr.includes(search) || statusStr.includes(search);
+        })
+        .sort((a, b) => {
+          if (a.isDuplicate && !b.isDuplicate) return -1;
+          if (!a.isDuplicate && b.isDuplicate) return 1;
+          return new Date(b.date || 0) - new Date(a.date || 0);
+        });
+
+      if (filtered.length === 0) {
+        table.innerHTML = `<tr><td colspan="5" style="text-align:center;">ไม่พบข้อมูล</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(doc => {
+        const row = document.createElement('tr');
+        if (doc.isDuplicate) row.classList.add('duplicate-row');
+
+        row.innerHTML = `
+          <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
+          <td><span class="docName">${(doc.name ?? '').toString().replace(/['"]+/g, '')}</span></td>
+          <td><span class="status-display status-${(doc.status ?? '').toString()}">${(doc.status ?? '').toString().replace(/['"]+/g, '')}</span></td>
+          <td><span class="docDate">${(doc.date ?? '').toString().replace(/['"]+/g, '')}</span></td>
+          <td>
+            <div class="action-container">
+              <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
+              <button class="action-btn" onclick="deleteDocument(${doc.index})">🗑️</button>
+            </div>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    // ---------- CSV ----------
     function downloadCSV() {
       if (documents.length === 0) {
         alert("ยังไม่มีข้อมูลให้ดาวน์โหลด");
@@ -538,12 +492,12 @@
 
       const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
       const rows = documents.filter(doc => !doc.isDuplicate)
-        .map(doc => [doc.name, doc.status, doc.date]);
+        .map(doc => [doc.name ?? '', doc.status ?? '', doc.date ?? '']);
 
       let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
       csvContent += headers.join(",") + "\n";
       rows.forEach(row => {
-        csvContent += row.map(item => `"${item}"`).join(",") + "\n";
+        csvContent += row.map(item => `"${(item ?? '').toString().replace(/"/g,'""')}"`).join(",") + "\n";
       });
 
       const encodedUri = encodeURI(csvContent);
@@ -561,35 +515,44 @@
 
       const reader = new FileReader();
       reader.onload = function (e) {
-        const lines = e.target.result.split("\n");
-        let count = 0;
+        const raw = e.target.result.replace(/\r/g, '');
+        const lines = raw.split('\n').filter(l => l.trim() !== '');
+
         let newDocuments = [];
-        
-        for (let line of lines) {
-          if (!line.trim()) continue;
-          let [name, status, date] = line.split(",").map(x => x.replace(/['"]+/g, '').trim());
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          // ข้ามหัวตาราง (ไทย/อังกฤษ)
+          if (/^"?ชื่อเอกสาร"?\s*,\s*"?สถานะ"?\s*,\s*"?วันที่รับคืน"?$/i.test(line) ||
+              /^"?name"?\s*,\s*"?status"?\s*,\s*"?date"?$/i.test(line)) {
+            continue;
+          }
+
+          const parts = line.split(',');
+          if (parts.length < 3) continue;
+
+          let [name, status, date] = parts.map(x => (x ?? '').replace(/['"]+/g, '').trim());
           if (!name || !status || !date) continue;
-          
-          const isDuplicate = documents.some(doc => doc.name === name) || 
-                             newDocuments.some(doc => doc.name === name);
-          
+
+          const isDuplicate =
+            documents.some(doc => normalizeName(doc.name) === normalizeName(name)) ||
+            newDocuments.some(doc => normalizeName(doc.name) === normalizeName(name));
+
           newDocuments.push({ name, status, date, isDuplicate });
-          count++;
         }
 
-        // เพิ่มเอกสารใหม่
         documents.unshift(...newDocuments);
         renderTable();
-        
-        // บันทึกข้อมูล
-        saveData('import', { count }).then(() => {
-          alert(`นำเข้า ${count} รายการสำเร็จ`);
+
+        saveData('import', { count: newDocuments.length }).then(() => {
+          alert(`นำเข้า ${newDocuments.length} รายการสำเร็จ`);
           event.target.value = '';
         });
       };
       reader.readAsText(file);
     }
 
+    // ---------- Bulk / Misc ----------
     function deleteSelected() {
       const checkboxes = document.querySelectorAll('.rowCheckbox:checked');
       if (checkboxes.length === 0) {
@@ -599,17 +562,14 @@
 
       if (!confirm(`ต้องการลบ ${checkboxes.length} รายการใช่หรือไม่?`)) return;
 
-      const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
-      const docsToDelete = indexesToDelete.map(i => documents[i].name);
-      
-      // ลบชั่วคราว
+      const indexesToDelete = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index, 10));
+      const docsToDelete = indexesToDelete.map(i => documents[i]?.name).filter(Boolean);
+
       documents = documents.filter((_, i) => !indexesToDelete.includes(i));
       renderTable();
-      
-      // ลบออกจาก Google Sheets
+
       saveData('deleteMultiple', { names: docsToDelete }).then(result => {
         if (!result.success) {
-          // ถ้าไม่สำเร็จ ให้โหลดข้อมูลใหม่
           loadData();
           alert("ไม่สามารถลบเอกสารบางส่วนจาก Google Sheets ได้ กำลังโหลดข้อมูลใหม่");
         }
@@ -621,13 +581,11 @@
       checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
     }
 
-    // เมื่อโหลดหน้าเว็บ
+    // ---------- Init ----------
     document.addEventListener('DOMContentLoaded', () => {
       const statusSelect = document.getElementById('docStatus');
       updateSelectColor(statusSelect);
-      statusSelect.addEventListener('change', function () {
-        updateSelectColor(this);
-      });
+      statusSelect.addEventListener('change', function () { updateSelectColor(this); });
 
       document.getElementById("docName").addEventListener("keypress", function (e) {
         if (e.key === "Enter") addDocument();
@@ -636,13 +594,10 @@
         if (e.key === "Enter") addDocument();
       });
 
-      // โหลดข้อมูล
       loadData();
-      
-      // ตรวจสอบสถานะออนไลน์ทุก 30 วินาที
-      setInterval(() => {
-        if (!isOnline) loadData();
-      }, 30000);
+
+      // รีลองโหลดใหม่ทุก 30 วินาทีถ้าออฟไลน์
+      setInterval(() => { if (!isOnline) loadData(); }, 30000);
     });
   </script>
 
