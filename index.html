@@ -254,6 +254,22 @@
       select.classList.add('status-display', `status-${value}`);
     }
 
+    // ฟังก์ชันตรวจสอบเอกสารซ้ำ
+    function checkDuplicates() {
+      const nameCounts = {};
+      
+      // นับจำนวนเอกสารที่มีชื่อเดียวกัน
+      documents.forEach(doc => {
+        const name = normalizeName(doc.name);
+        nameCounts[name] = (nameCounts[name] || 0) + 1;
+      });
+      
+      // ตั้งค่าสถานะซ้ำ
+      documents.forEach(doc => {
+        doc.isDuplicate = nameCounts[normalizeName(doc.name)] > 1;
+      });
+    }
+
     // ---------- Load / Save ----------
     async function loadData() {
       showLoading(true);
@@ -269,6 +285,9 @@
           isDuplicate: false
         }));
 
+        // ตรวจสอบเอกสารซ้ำ
+        checkDuplicates();
+        
         isOnline = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(documents));
         document.getElementById('offlineAlert').style.display = 'none';
@@ -279,6 +298,8 @@
 
         const localData = localStorage.getItem(STORAGE_KEY);
         documents = localData ? JSON.parse(localData) : [];
+        // ตรวจสอบเอกสารซ้ำ
+        checkDuplicates();
       } finally {
         showLoading(false);
         renderTable();
@@ -343,6 +364,12 @@
         return;
       }
 
+      // ตรวจสอบว่าวันที่อยู่ในรูปแบบที่ถูกต้องหรือไม่
+      if (!isValidDate(date)) {
+        alert("กรุณากรอกวันที่ในรูปแบบที่ถูกต้อง (YYYY-MM-DD)");
+        return;
+      }
+
       const isDuplicate = documents.some(doc => normalizeName(doc.name) === normalizeName(name));
       if (isDuplicate) {
         alert("มีชื่อเอกสารนี้อยู่แล้ว");
@@ -351,15 +378,54 @@
 
       const newDoc = { name, status, date, isDuplicate: false };
       documents.unshift(newDoc);
+      
+      // ตรวจสอบเอกสารซ้ำใหม่
+      checkDuplicates();
+      
       renderTable();
       clearInputs();
 
       const result = await saveData('add', newDoc);
       if (!result.success) {
         documents.shift();
+        // ตรวจสอบเอกสารซ้ำใหม่
+        checkDuplicates();
         renderTable();
         alert(result.error);
       }
+    }
+
+    // ฟังก์ชันตรวจสอบความถูกต้องของวันที่
+    function isValidDate(dateString) {
+      const regex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!regex.test(dateString)) return false;
+      
+      const date = new Date(dateString);
+      const timestamp = date.getTime();
+      return !isNaN(timestamp);
+    }
+
+    // ฟังก์ชันจัดรูปแบบวันที่ให้เป็น YYYY-MM-DD
+    function formatDate(dateString) {
+      if (!dateString) return '';
+      
+      // ถ้าวันที่อยู่ในรูปแบบที่ถูกต้องอยู่แล้ว
+      if (isValidDate(dateString)) {
+        return dateString;
+      }
+      
+      // พยายามแปลงรูปแบบวันที่
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString; // ถ้าแปลงไม่ได้ ให้คืนค่าต้นฉบับ
+      }
+      
+      // จัดรูปแบบเป็น YYYY-MM-DD
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
     }
 
     async function deleteDocument(index) {
@@ -367,11 +433,17 @@
 
       const docToDelete = documents[index];
       documents.splice(index, 1);
+      
+      // ตรวจสอบเอกสารซ้ำใหม่
+      checkDuplicates();
+      
       renderTable();
 
       const result = await saveData('delete', { name: docToDelete.name });
       if (!result.success) {
         documents.splice(index, 0, docToDelete);
+        // ตรวจสอบเอกสารซ้ำใหม่
+        checkDuplicates();
         renderTable();
         alert(result.error);
       }
@@ -388,6 +460,12 @@
         return;
       }
 
+      // ตรวจสอบว่าวันที่อยู่ในรูปแบบที่ถูกต้องหรือไม่
+      if (!isValidDate(date)) {
+        alert("กรุณากรอกวันที่ในรูปแบบที่ถูกต้อง (YYYY-MM-DD)");
+        return;
+      }
+
       const oldDoc = documents[index];
 
       const isDuplicate = documents.some((doc, i) => i !== index && normalizeName(doc.name) === normalizeName(name));
@@ -397,11 +475,17 @@
       }
 
       documents[index] = { name, status, date, isDuplicate: false };
+      
+      // ตรวจสอบเอกสารซ้ำใหม่
+      checkDuplicates();
+      
       renderTable();
 
       const result = await saveData('update', { oldName: oldDoc.name, name, status, date });
       if (!result.success) {
         documents[index] = oldDoc;
+        // ตรวจสอบเอกสารซ้ำใหม่
+        checkDuplicates();
         renderTable();
         alert(result.error);
       }
@@ -424,7 +508,7 @@
             <option ${doc.status === "DONE" ? "selected" : ""}>DONE</option>
           </select>
         </td>
-        <td><input type="date" value="${(doc.date ?? '').toString()}" id="editDate${index}"></td>
+        <td><input type="date" value="${formatDate((doc.date ?? '').toString())}" id="editDate${index}"></td>
         <td>
           <div class="action-container">
             <button class="action-btn" onclick="saveEdit(${index})">💾</button>
@@ -453,8 +537,11 @@
           return nameStr.includes(search) || statusStr.includes(search);
         })
         .sort((a, b) => {
+          // เรียงลำดับ: เอกสารซ้ำขึ้นก่อน
           if (a.isDuplicate && !b.isDuplicate) return -1;
           if (!a.isDuplicate && b.isDuplicate) return 1;
+          
+          // ถ้าทั้งคู่ซ้ำหรือไม่ซ้ำ ให้เรียงตามวันที่ล่าสุดขึ้นก่อน
           return new Date(b.date || 0) - new Date(a.date || 0);
         });
 
@@ -471,7 +558,7 @@
           <td><input type="checkbox" class="rowCheckbox" data-index="${doc.index}"></td>
           <td><span class="docName">${(doc.name ?? '').toString().replace(/['"]+/g, '')}</span></td>
           <td><span class="status-display status-${(doc.status ?? '').toString()}">${(doc.status ?? '').toString().replace(/['"]+/g, '')}</span></td>
-          <td><span class="docDate">${(doc.date ?? '').toString().replace(/['"]+/g, '')}</span></td>
+          <td><span class="docDate">${formatDate((doc.date ?? '').toString())}</span></td>
           <td>
             <div class="action-container">
               <button class="action-btn" onclick="editDocument(${doc.index}, this)">✏️</button>
@@ -491,8 +578,9 @@
       }
 
       const headers = ["ชื่อเอกสาร", "สถานะ", "วันที่รับคืน"];
-      const rows = documents.filter(doc => !doc.isDuplicate)
-        .map(doc => [doc.name ?? '', doc.status ?? '', doc.date ?? '']);
+      const rows = documents
+        .filter(doc => !doc.isDuplicate)
+        .map(doc => [doc.name ?? '', doc.status ?? '', formatDate(doc.date ?? '')]);
 
       let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
       csvContent += headers.join(",") + "\n";
@@ -534,6 +622,9 @@
           let [name, status, date] = parts.map(x => (x ?? '').replace(/['"]+/g, '').trim());
           if (!name || !status || !date) continue;
 
+          // จัดรูปแบบวันที่ให้ถูกต้อง
+          date = formatDate(date);
+
           const isDuplicate =
             documents.some(doc => normalizeName(doc.name) === normalizeName(name)) ||
             newDocuments.some(doc => normalizeName(doc.name) === normalizeName(name));
@@ -542,6 +633,10 @@
         }
 
         documents.unshift(...newDocuments);
+        
+        // ตรวจสอบเอกสารซ้ำใหม่
+        checkDuplicates();
+        
         renderTable();
 
         saveData('import', { count: newDocuments.length }).then(() => {
@@ -566,6 +661,10 @@
       const docsToDelete = indexesToDelete.map(i => documents[i]?.name).filter(Boolean);
 
       documents = documents.filter((_, i) => !indexesToDelete.includes(i));
+      
+      // ตรวจสอบเอกสารซ้ำใหม่
+      checkDuplicates();
+      
       renderTable();
 
       saveData('deleteMultiple', { names: docsToDelete }).then(result => {
