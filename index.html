@@ -23,54 +23,29 @@
       text-align: center;
     }
 
-    .form-card {
-      background-color: #1e1e1e;
-      padding: 20px 30px;
-      border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-      max-width: 500px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .form-card label { font-weight: bold; }
-
-    input, select, button {
-      font-size: 14px;
-      padding: 10px;
-      width: 100%;
-      border-radius: 8px;
-      border: 1px solid #444;
-      box-sizing: border-box;
-      background-color: #222;
-      color: white;
-    }
-
-    input:focus, select:focus {
-      outline: none;
-      border-color: #4caf50;
-      box-shadow: 0 0 5px rgba(76, 175, 80, 0.4);
-    }
-
     .search {
       width: 100%;
       max-width: 1000px;
       display: flex;
       justify-content: center;
-      margin-bottom: 10px;
+      margin-bottom: 30px;
     }
 
     .search input {
       width: 100%;
       max-width: 600px;
-      padding: 10px;
+      padding: 12px 16px;
       border-radius: 8px;
       background: #222;
       color: white;
       border: 1px solid #444;
+      font-size: 16px;
+    }
+
+    .search input:focus {
+      outline: none;
+      border-color: #4caf50;
+      box-shadow: 0 0 5px rgba(76, 175, 80, 0.4);
     }
 
     .buttons {
@@ -188,25 +163,6 @@
 
   <h2>ระบบรับเอกสาร RFA & RFI จากปากช่อง</h2>
 
-  <div class="form-card">
-    <label for="docName">ชื่อเอกสาร</label>
-    <input type="text" id="docName" placeholder="เช่น RFA-000001">
-
-    <label for="docStatus">สถานะเอกสาร</label>
-    <select id="docStatus">
-      <option value="อนุมัติ">อนุมัติ</option>
-      <option value="อนุมัติตามบันทึก">อนุมัติตามบันทึก</option>
-      <option value="แก้ไขเพิ่มเติม">แก้ไขเพิ่มเติม</option>
-      <option value="ไม่อนุมัติ">ไม่อนุมัติ</option>
-      <option value="DONE">DONE</option>
-    </select>
-
-    <label for="docDate">วันที่รับคืน</label>
-    <input type="date" id="docDate">
-
-    <button onclick="addDocument()" id="addBtn">เพิ่มเอกสาร</button>
-  </div>
-
   <div class="search">
     <input type="text" id="searchInput" placeholder="ค้นหาเอกสารหรือสถานะ..." oninput="renderTable()">
   </div>
@@ -246,13 +202,6 @@
 
     // ---------- Utils ----------
     function normalizeName(x){ return (x ?? '').toString().trim().toLowerCase(); }
-
-    // อัพเดตสีของ select ตามสถานะ
-    function updateSelectColor(select) {
-      const value = select.value;
-      select.className = '';
-      select.classList.add('status-display', `status-${value}`);
-    }
 
     // ฟังก์ชันตรวจสอบเอกสารซ้ำ
     function checkDuplicates() {
@@ -337,62 +286,7 @@
 
     // ---------- UI Helpers ----------
     function showLoading(show) {
-      const addBtn = document.getElementById('addBtn');
-      if (show) {
-        addBtn.disabled = true;
-        addBtn.innerHTML = '<span class="loading"></span> กำลังประมวลผล...';
-      } else {
-        addBtn.disabled = false;
-        addBtn.textContent = 'เพิ่มเอกสาร';
-      }
-    }
-
-    function clearInputs() {
-      document.getElementById('docName').value = '';
-      document.getElementById('docDate').value = '';
-    }
-
-    // ---------- CRUD ----------
-    async function addDocument() {
-      const nameRaw = document.getElementById('docName').value;
-      const name = (nameRaw ?? '').trim();
-      const status = document.getElementById('docStatus').value;
-      const date = document.getElementById('docDate').value;
-
-      if (!name || !date) {
-        alert("กรุณากรอกชื่อเอกสารและวันที่รับคืน");
-        return;
-      }
-
-      // ตรวจสอบว่าวันที่อยู่ในรูปแบบที่ถูกต้องหรือไม่
-      if (!isValidDate(date)) {
-        alert("กรุณากรอกวันที่ในรูปแบบที่ถูกต้อง (YYYY-MM-DD)");
-        return;
-      }
-
-      const isDuplicate = documents.some(doc => normalizeName(doc.name) === normalizeName(name));
-      if (isDuplicate) {
-        alert("มีชื่อเอกสารนี้อยู่แล้ว");
-        return;
-      }
-
-      const newDoc = { name, status, date, isDuplicate: false };
-      documents.unshift(newDoc);
-      
-      // ตรวจสอบเอกสารซ้ำใหม่
-      checkDuplicates();
-      
-      renderTable();
-      clearInputs();
-
-      const result = await saveData('add', newDoc);
-      if (!result.success) {
-        documents.shift();
-        // ตรวจสอบเอกสารซ้ำใหม่
-        checkDuplicates();
-        renderTable();
-        alert(result.error);
-      }
+      // ไม่มีปุ่มเพิ่มเอกสารแล้ว
     }
 
     // ฟังก์ชันตรวจสอบความถูกต้องของวันที่
@@ -500,7 +394,7 @@
         <td></td>
         <td><input value="${(doc.name ?? '').toString().replace(/"/g,'&quot;')}" id="editName${index}"></td>
         <td>
-          <select id="editStatus${index}" onchange="updateSelectColor(this)">
+          <select id="editStatus${index}">
             <option ${doc.status === "อนุมัติ" ? "selected" : ""}>อนุมัติ</option>
             <option ${doc.status === "อนุมัติตามบันทึก" ? "selected" : ""}>อนุมัติตามบันทึก</option>
             <option ${doc.status === "แก้ไขเพิ่มเติม" ? "selected" : ""}>แก้ไขเพิ่มเติม</option>
@@ -516,11 +410,6 @@
           </div>
         </td>
       `;
-
-      setTimeout(() => {
-        const editSelect = document.getElementById(`editStatus${index}`);
-        updateSelectColor(editSelect);
-      }, 0);
     }
 
     // ---------- Table / Search ----------
@@ -682,17 +571,6 @@
 
     // ---------- Init ----------
     document.addEventListener('DOMContentLoaded', () => {
-      const statusSelect = document.getElementById('docStatus');
-      updateSelectColor(statusSelect);
-      statusSelect.addEventListener('change', function () { updateSelectColor(this); });
-
-      document.getElementById("docName").addEventListener("keypress", function (e) {
-        if (e.key === "Enter") addDocument();
-      });
-      document.getElementById("docDate").addEventListener("keypress", function (e) {
-        if (e.key === "Enter") addDocument();
-      });
-
       loadData();
 
       // รีลองโหลดใหม่ทุก 30 วินาทีถ้าออฟไลน์
